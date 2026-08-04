@@ -50,6 +50,16 @@
 
         <!-- Error Banner -->
         <div class="error-banner" id="errorBanner"></div>
+        
+        <!-- Cookies Upload Form (Hidden by default) -->
+        <div class="cookies-upload" id="cookiesUpload" style="display: none; margin-top: 10px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 10px;">Please upload a valid <strong>cookies.txt</strong> file (Netscape format) to bypass the age-restriction.</p>
+            <div style="display: flex; gap: 10px;">
+                <input type="file" id="cookiesFile" accept=".txt" style="color: var(--text-primary); font-size: 14px;" />
+                <button class="btn" id="uploadCookiesBtn" style="padding: 6px 12px; font-size: 14px; min-height: auto;">Upload Cookies</button>
+            </div>
+            <div id="cookiesUploadStatus" style="font-size: 13px; margin-top: 8px; color: var(--accent);"></div>
+        </div>
 
         <!-- Status Bar -->
         <div class="status-bar" id="statusBar">

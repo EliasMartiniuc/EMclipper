@@ -30,7 +30,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -556,6 +556,21 @@ async def cancel_job(job_id: str):
     job.add_progress("stopped", "⏹ Pipeline stopped immediately.")
 
     return {"status": "cancelled"}
+
+
+@app.post("/api/upload_cookies")
+async def upload_cookies(file: UploadFile = File(...)):
+    """Upload a cookies.txt file to authenticate yt-dlp."""
+    cookie_file = BASE_DIR / "cookies.txt"
+    try:
+        content = await file.read()
+        with open(cookie_file, "wb") as f:
+            f.write(content)
+        logger.info(f"Successfully saved uploaded cookies to {cookie_file}")
+        return {"status": "success", "message": "Cookies uploaded successfully."}
+    except Exception as e:
+        logger.error(f"Failed to save cookies file: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save cookies file.")
 
 
 # ─── Frontend Serving ──────────────────────────────────────────────────────────

@@ -20,6 +20,12 @@ const errorBanner = document.getElementById('errorBanner');
 const subtitlesToggle = document.getElementById('subtitlesToggle');
 const mouseGlow = document.getElementById('mouseGlow');
 
+// Cookies Upload Elements
+const cookiesUpload = document.getElementById('cookiesUpload');
+const cookiesFile = document.getElementById('cookiesFile');
+const uploadCookiesBtn = document.getElementById('uploadCookiesBtn');
+const cookiesUploadStatus = document.getElementById('cookiesUploadStatus');
+
 // Event Listeners
 document.addEventListener('mousemove', (e) => {
     // Only move if we aren't hovering over an interactive element that should have its own focus
@@ -32,6 +38,46 @@ urlInput.addEventListener('keydown', (e) => {
 });
 processBtn.addEventListener('click', startProcessing);
 stopBtn.addEventListener('click', stopProcessing);
+
+uploadCookiesBtn.addEventListener('click', async () => {
+    const file = cookiesFile.files[0];
+    if (!file) {
+        cookiesUploadStatus.textContent = 'Please select a file first.';
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    uploadCookiesBtn.disabled = true;
+    uploadCookiesBtn.textContent = 'Uploading...';
+    cookiesUploadStatus.textContent = '';
+
+    try {
+        const resp = await fetch(`${API}/api/upload_cookies`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!resp.ok) {
+            throw new Error(`Upload failed (${resp.status})`);
+        }
+        
+        cookiesUploadStatus.style.color = 'var(--accent)';
+        cookiesUploadStatus.textContent = 'Cookies uploaded successfully! You can now click "Generate Clips" again.';
+        
+        setTimeout(() => {
+            hideError();
+        }, 5000);
+        
+    } catch (err) {
+        cookiesUploadStatus.style.color = '#ef4444';
+        cookiesUploadStatus.textContent = err.message;
+    } finally {
+        uploadCookiesBtn.disabled = false;
+        uploadCookiesBtn.textContent = 'Upload Cookies';
+    }
+});
 
 // Main Processing Logic
 async function startProcessing() {
@@ -277,10 +323,20 @@ function displayClips(clips, jobId) {
 function showError(msg) {
     errorBanner.innerHTML = `<strong>Error:</strong> ${escapeHtml(msg)}`;
     errorBanner.classList.add('visible');
+
+    // Show cookies upload if age-restricted
+    if (msg.toLowerCase().includes('age-restricted')) {
+        cookiesUpload.style.display = 'block';
+        cookiesUploadStatus.textContent = '';
+        cookiesFile.value = '';
+    } else {
+        cookiesUpload.style.display = 'none';
+    }
 }
 
 function hideError() {
     errorBanner.classList.remove('visible');
+    cookiesUpload.style.display = 'none';
 }
 
 function resetButtons() {
