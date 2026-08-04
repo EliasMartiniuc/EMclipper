@@ -36,8 +36,8 @@ def download_video(url: str, job_id: str) -> Tuple[Path, dict]:
     output_template = str(output_dir / "%(title).100s.%(ext)s")
 
     ydl_opts = {
-        # Format selection: best video and audio, remux to mp4 at the end
-        "format": "bestvideo+bestaudio/best",
+        # Format selection: robust fallback to ensure it works even on age-restricted or weirdly formatted videos
+        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best",
         "outtmpl": output_template,
         "merge_output_format": "mp4",
         # Reliability
