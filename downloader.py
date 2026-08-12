@@ -40,6 +40,8 @@ def download_video(url: str, job_id: str) -> Tuple[Path, dict]:
         "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best",
         "outtmpl": output_template,
         "merge_output_format": "mp4",
+        # Use alternative player clients to bypass age-restriction on servers
+        "extractor_args": {"youtube": {"player_client": ["tv_embedded", "web"]}},
         # Reliability
         "no_warnings": True,
         "quiet": True,
