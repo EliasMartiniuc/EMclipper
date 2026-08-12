@@ -37,7 +37,7 @@ def download_video(url: str, job_id: str) -> Tuple[Path, dict]:
 
     ydl_opts = {
         # Format selection: best video and audio (FFmpeg will automatically merge into mp4)
-        "format": "bestvideo+bestaudio/best",
+        "format": "bestvideo*+bestaudio/best",
         "outtmpl": output_template,
         "merge_output_format": "mp4",
         # Use android and web player clients for best compatibility with cookies and age-restricted videos
