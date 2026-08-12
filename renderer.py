@@ -71,11 +71,14 @@ def render_short(
         "-map", "[outv]",
         "-map", "0:a?",
         "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", "20",
+        # Optimize for low-memory environments (prevents OOM on 512MB Render instances)
+        "-threads", "1",
+        "-preset", "ultrafast",
+        "-crf", "22",
         "-pix_fmt", "yuv420p",
         "-c:a", "aac",
-        "-b:a", "192k"
+        "-b:a", "128k",
+        "-max_muxing_queue_size", "1024"
     ])
 
     ffmpeg_cmd.extend([
