@@ -216,6 +216,16 @@ function connectSSE(jobId) {
 async function checkJobStatus(jobId) {
     try {
         const resp = await fetch(`${API}/api/job/${jobId}`);
+        if (!resp.ok) {
+            if (resp.status === 404) {
+                showError('Job session expired (server redeployed or restarted). Please click Generate Clips to start fresh.');
+            } else {
+                showError(`Server error (${resp.status})`);
+            }
+            resetButtons();
+            return;
+        }
+
         const job = await resp.json();
 
         if (job.status === 'completed') {
