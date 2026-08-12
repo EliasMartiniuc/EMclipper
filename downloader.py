@@ -40,6 +40,9 @@ def download_video(url: str, job_id: str) -> Tuple[Path, dict]:
         "format": "bestvideo*+bestaudio/best",
         "outtmpl": output_template,
         "merge_output_format": "mp4",
+        # ALWAYS use android and web player clients. This is mandatory on headless servers
+        # to bypass the IP-mismatch age restriction check, even when cookies are provided.
+        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
         # Reliability
         "no_warnings": True,
         "quiet": True,
@@ -64,13 +67,9 @@ def download_video(url: str, job_id: str) -> Tuple[Path, dict]:
     if cookie_file.exists():
         logger.info("Using cookies.txt for yt-dlp authentication")
         ydl_opts["cookiefile"] = str(cookie_file)
-    else:
-        # Use android and web player clients to bypass age-restriction on servers when NO cookies are provided
-        ydl_opts["extractor_args"] = {"youtube": {"player_client": ["android", "web"]}}
-        
-        if YOUTUBE_BROWSER:
-            logger.info(f"Using browser cookies from: {YOUTUBE_BROWSER}")
-            ydl_opts["cookiesfrombrowser"] = (YOUTUBE_BROWSER.lower(),)
+    elif YOUTUBE_BROWSER:
+        logger.info(f"Using browser cookies from: {YOUTUBE_BROWSER}")
+        ydl_opts["cookiesfrombrowser"] = (YOUTUBE_BROWSER.lower(),)
 
     try:
         with YoutubeDL(ydl_opts) as ydl:
