@@ -539,14 +539,14 @@ async def cancel_job(job_id: str):
         tid = job.thread.ident
         if tid is not None:
             res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
-                ctypes.c_ulong(tid),
+                ctypes.c_long(tid),
                 ctypes.py_object(SystemExit)
             )
             if res == 0:
                 logger.warning(f"Thread {tid} not found for cancellation")
             elif res > 1:
                 # Reset if more than one thread was affected (shouldn't happen)
-                ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(tid), None)
+                ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid), None)
             else:
                 logger.info(f"Injected SystemExit into worker thread {tid}")
 

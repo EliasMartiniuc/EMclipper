@@ -38,7 +38,7 @@ DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
 
 # ─── Subtitle Styling ─────────────────────────────────────────────────────────
 # ASS color format: &HAABBGGRR (hex, BGR order, not RGB)
-SUBTITLE_FONT = os.getenv("SUBTITLE_FONT", "Arial Black")
+SUBTITLE_FONT = os.getenv("SUBTITLE_FONT", "Liberation Sans")
 SUBTITLE_FONTSIZE = int(os.getenv("SUBTITLE_FONTSIZE", "58"))
 SUBTITLE_PRIMARY_COLOR = os.getenv("SUBTITLE_PRIMARY_COLOR", "&H0000FFFF")      # Yellow (highlighted word)
 SUBTITLE_SECONDARY_COLOR = os.getenv("SUBTITLE_SECONDARY_COLOR", "&H00FFFFFF")  # White (pre-highlight)

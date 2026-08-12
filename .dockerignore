@@ -1,0 +1,10 @@
+downloads/
+outputs/
+temp/
+__pycache__/
+*.pyc
+.env
+cookies.txt
+.git/
+.gitignore
+*.md
