@@ -36,12 +36,12 @@ def download_video(url: str, job_id: str) -> Tuple[Path, dict]:
     output_template = str(output_dir / "%(title).100s.%(ext)s")
 
     ydl_opts = {
-        # Format selection: robust fallback to ensure it works even on age-restricted or weirdly formatted videos
-        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best",
+        # Format selection: best video and audio (FFmpeg will automatically merge into mp4)
+        "format": "bestvideo+bestaudio/best",
         "outtmpl": output_template,
         "merge_output_format": "mp4",
-        # Use alternative player clients to bypass age-restriction on servers
-        "extractor_args": {"youtube": {"player_client": ["tv_embedded", "web"]}},
+        # Use android and web player clients for best compatibility with cookies and age-restricted videos
+        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
         # Reliability
         "no_warnings": True,
         "quiet": True,
