@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Tuple
 
 from yt_dlp import YoutubeDL
-from config import DOWNLOADS_DIR, TEMP_DIR, YOUTUBE_BROWSER, BASE_DIR
+from config import DOWNLOADS_DIR, TEMP_DIR, YOUTUBE_BROWSER, BASE_DIR, PROXY_URL
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,10 @@ def download_video(url: str, job_id: str) -> Tuple[Path, dict]:
     elif YOUTUBE_BROWSER:
         logger.info(f"Using browser cookies from: {YOUTUBE_BROWSER}")
         ydl_opts["cookiesfrombrowser"] = (YOUTUBE_BROWSER.lower(),)
+        
+    if PROXY_URL:
+        logger.info("Routing download through residential proxy to bypass Datacenter blocks")
+        ydl_opts["proxy"] = PROXY_URL
 
     try:
         with YoutubeDL(ydl_opts) as ydl:
