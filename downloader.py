@@ -138,7 +138,7 @@ def download_video(url: str, job_id: str) -> Tuple[Path, dict]:
             )
         elif "Requested format is not available" in error_msg:
             raise RuntimeError(
-                "YouTube blocked the video stream. If this is an age-restricted video, your uploaded cookies.txt may have been wiped out by a server restart. Please re-upload cookies.txt and try again."
+                "YouTube blocked the video stream. This usually happens if you are using a blocked VPN/Proxy, or if it's an age-restricted video but your browser cookies couldn't be loaded (e.g., if Chrome is currently open). Try closing your browser, removing any proxies, or using a different YOUTUBE_BROWSER in .env."
             )
         elif "HTTP Error 429" in error_msg or "Too Many Requests" in error_msg:
             raise RuntimeError(
