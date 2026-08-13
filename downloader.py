@@ -12,6 +12,7 @@ from typing import Tuple
 
 from yt_dlp import YoutubeDL
 from config import DOWNLOADS_DIR, TEMP_DIR, YOUTUBE_BROWSER, BASE_DIR, PROXY_URL
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -224,6 +225,22 @@ def _progress_hook(d: dict):
     elif status == "finished":
         logger.info("Download finished, processing...")
 
+
+def get_video_duration(video_path: Path) -> float:
+    """Use ffprobe to get the duration of a video file in seconds."""
+    cmd = [
+        "ffprobe",
+        "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        str(video_path)
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return float(result.stdout.strip())
+    except (subprocess.CalledProcessError, ValueError) as e:
+        logger.error(f"Failed to get video duration: {e}")
+        return 0.0
 
 def extract_audio(video_path: Path, job_id: str) -> Path:
     """

@@ -68,10 +68,11 @@ class Job:
     Progress messages are consumed by the SSE endpoint for real-time UI updates.
     """
 
-    def __init__(self, job_id: str, url: str, subtitles_enabled: bool = True):
+    def __init__(self, job_id: str, url: Optional[str] = None, subtitles_enabled: bool = True):
         self.id: str = job_id
-        self.url: str = url
+        self.url: Optional[str] = url
         self.subtitles_enabled: bool = subtitles_enabled
+        self.uploaded_video_path: Optional[Path] = None
         self.status: JobStatus = JobStatus.QUEUED
         self.progress: List[dict] = []
         self.clips: List[dict] = []
@@ -108,6 +109,7 @@ class Job:
             "error": self.error,
             "created_at": self.created_at,
             "video_title": self.video_title,
+            "is_upload": self.uploaded_video_path is not None,
         }
 
 
@@ -141,18 +143,35 @@ def process_video_stateless(job: Job):
         # ════════════════════════════════════════════════════════════════
         # STAGE 1: DOWNLOAD
         # ════════════════════════════════════════════════════════════════
-        job.status = JobStatus.DOWNLOADING
-        job.add_progress("download", "Starting video download...")
+        if job.uploaded_video_path:
+            # Skip download, use the uploaded file
+            job.status = JobStatus.DOWNLOADING # keep status same for UI compatibility
+            job.add_progress("download", "Using uploaded video file...")
+            video_path = job.uploaded_video_path
+            
+            # Use ffprobe to get duration
+            duration = downloader.get_video_duration(video_path)
+            video_info = {
+                "title": job.video_title,
+                "duration": duration,
+                "width": "Unknown",
+                "height": "Unknown",
+            }
+            job.add_progress("download", f"Verified uploaded file ({duration:.1f}s)")
+        else:
+            # Fallback to YouTube download
+            job.status = JobStatus.DOWNLOADING
+            job.add_progress("download", "Starting video download from YouTube...")
 
-        video_path, video_info = downloader.download_video(job.url, job_id)
-        job.video_title = video_info["title"]
+            video_path, video_info = downloader.download_video(job.url, job_id)
+            job.video_title = video_info["title"]
 
-        job.add_progress(
-            "download",
-            f"Downloaded: \"{video_info['title']}\" "
-            f"({video_info['duration']}s, "
-            f"{video_info['width']}x{video_info['height']})",
-        )
+            job.add_progress(
+                "download",
+                f"Downloaded: \"{video_info['title']}\" "
+                f"({video_info['duration']}s, "
+                f"{video_info['width']}x{video_info['height']})",
+            )
 
         # Extract audio for transcription
         job.add_progress("download", "Extracting audio track...")
@@ -382,31 +401,43 @@ app.add_middleware(
 
 @app.post("/api/process_stream")
 async def process_stream(
-    url: str = Form(...), 
+    url: str = Form(""), 
     subtitles_enabled: bool = Form(True),
-    cookies_file: UploadFile = File(None)
+    video_file: UploadFile = File(None)
 ):
     """
     Stream real-time progress updates via Server-Sent Events (SSE).
     This handles the processing request completely statelessly via POST.
     """
     url = url.strip()
-    if not url:
-        raise HTTPException(status_code=400, detail="URL cannot be empty")
+    if not url and not video_file:
+        raise HTTPException(status_code=400, detail="Must provide either a URL or a video file")
 
     job_id = str(uuid.uuid4())
-    job = Job(job_id, url, subtitles_enabled)
+    job = Job(job_id, url if url else None, subtitles_enabled)
     
-    if cookies_file and cookies_file.filename:
-        # Create temp dir for this job and save cookies
+    if video_file and video_file.filename:
+        # Create temp dir for this job and save the uploaded video
         job_temp_dir = TEMP_DIR / job_id
         job_temp_dir.mkdir(parents=True, exist_ok=True)
-        cookies_path = job_temp_dir / "cookies.txt"
-        content = await cookies_file.read()
-        cookies_path.write_bytes(content)
-        logger.info(f"[{job_id}] Saved uploaded cookies.txt ({len(content)} bytes) to {cookies_path}")
+        
+        # Sanitize filename
+        safe_filename = "".join(c for c in video_file.filename if c.isalnum() or c in (".", "-", "_")).strip()
+        if not safe_filename:
+            safe_filename = "uploaded_video.mp4"
+            
+        video_path = job_temp_dir / safe_filename
+        
+        # Stream the file to disk to avoid loading massive files into RAM
+        import shutil
+        with video_path.open("wb") as buffer:
+            shutil.copyfileobj(video_file.file, buffer)
+            
+        job.uploaded_video_path = video_path
+        job.video_title = video_file.filename
+        logger.info(f"[{job_id}] Saved uploaded video file ({video_path.stat().st_size} bytes) to {video_path}")
     else:
-        logger.info(f"[{job_id}] No cookies file uploaded (cookies_file={cookies_file}, filename={getattr(cookies_file, 'filename', None)})")
+        logger.info(f"[{job_id}] No video file uploaded, falling back to YouTube URL: {url}")
 
     queue = asyncio.Queue()
     loop = asyncio.get_running_loop()

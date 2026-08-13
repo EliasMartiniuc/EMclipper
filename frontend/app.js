@@ -20,10 +20,9 @@ const errorBanner = document.getElementById('errorBanner');
 const subtitlesToggle = document.getElementById('subtitlesToggle');
 const mouseGlow = document.getElementById('mouseGlow');
 
-// Cookies Upload Elements
-const cookiesUpload = document.getElementById('cookiesUpload');
-const cookiesFile = document.getElementById('cookiesFile');
-const cookiesUploadStatus = document.getElementById('cookiesUploadStatus');
+// Video Upload Elements
+const videoFile = document.getElementById('videoFile');
+const videoUploadStatus = document.getElementById('videoUploadStatus');
 
 // Event Listeners
 document.addEventListener('mousemove', (e) => {
@@ -37,22 +36,32 @@ urlInput.addEventListener('keydown', (e) => {
 processBtn.addEventListener('click', startProcessing);
 stopBtn.addEventListener('click', stopProcessing);
 
-// Show confirmation when cookies file is selected
-if (cookiesFile) {
-    cookiesFile.addEventListener('change', () => {
-        if (cookiesFile.files.length > 0) {
-            cookiesUploadStatus.textContent = `✅ ${cookiesFile.files[0].name} selected — it will be used when you click Generate Clips.`;
+// Show confirmation and validate size when video is selected
+if (videoFile) {
+    videoFile.addEventListener('change', () => {
+        if (videoFile.files.length > 0) {
+            const file = videoFile.files[0];
+            const sizeMB = file.size / (1024 * 1024);
+            if (sizeMB > 32) {
+                showError(`File is too large (${sizeMB.toFixed(1)}MB). Max size is 32MB.`);
+                videoFile.value = '';
+                videoUploadStatus.textContent = '';
+            } else {
+                hideError();
+                videoUploadStatus.textContent = `✅ ${file.name} (${sizeMB.toFixed(1)}MB) ready for upload.`;
+            }
         } else {
-            cookiesUploadStatus.textContent = '';
+            videoUploadStatus.textContent = '';
         }
     });
 }
 
-// Main Processing Logic
 async function startProcessing() {
     const url = urlInput.value.trim();
-    if (!url) {
-        showError('Please enter a YouTube URL');
+    const hasVideo = videoFile && videoFile.files.length > 0;
+    
+    if (!url && !hasVideo) {
+        showError('Please upload a video file OR enter a YouTube URL.');
         return;
     }
 
@@ -82,11 +91,13 @@ async function startProcessing() {
     abortController = new AbortController();
 
     const formData = new FormData();
-    formData.append('url', url);
+    if (url) {
+        formData.append('url', url);
+    }
     formData.append('subtitles_enabled', subtitles_enabled);
     
-    if (cookiesFile && cookiesFile.files.length > 0) {
-        formData.append('cookies_file', cookiesFile.files[0]);
+    if (hasVideo) {
+        formData.append('video_file', videoFile.files[0]);
     }
 
     try {

@@ -26,7 +26,7 @@ class JobStatus(str, Enum):
 
 class JobRequest(BaseModel):
     """Incoming request to process a YouTube video."""
-    url: str = Field(..., description="YouTube video URL")
+    url: Optional[str] = Field(None, description="YouTube video URL")
     subtitles_enabled: bool = Field(True, description="Whether to generate and burn subtitles into the video")
 
 

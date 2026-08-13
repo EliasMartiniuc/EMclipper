@@ -20,6 +20,13 @@
 
         <!-- Input Section -->
         <div class="input-card">
+            <div class="input-group" style="flex-direction: column; align-items: stretch; padding: 15px; margin-bottom: 10px;">
+                <label style="color: #a1a1aa; font-size: 14px; margin-bottom: 8px;">1. Upload a Video File (Max 32MB on Cloud Run)</label>
+                <input type="file" id="videoFile" accept="video/*" style="color: #fff; font-size: 14px; padding: 8px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; background: rgba(0,0,0,0.2);" />
+            </div>
+
+            <div style="text-align: center; color: #a1a1aa; font-size: 14px; margin: 15px 0;">— OR —</div>
+
             <div class="input-group">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                     stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);">
@@ -28,7 +35,7 @@
                     </path>
                     <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon>
                 </svg>
-                <input type="text" id="urlInput" placeholder="Paste YouTube URL here..." autocomplete="off" />
+                <input type="text" id="urlInput" placeholder="2. Paste YouTube URL here..." autocomplete="off" />
             </div>
 
             <div class="toggle-wrapper">
@@ -51,14 +58,7 @@
         <!-- Error Banner -->
         <div class="error-banner" id="errorBanner"></div>
         
-        <!-- Cookies Upload (Always visible, optional) -->
-        <div id="cookiesUpload" style="margin-top: 10px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-                <p style="margin: 0; color: #a1a1aa; font-size: 13px;">🍪 <strong>Optional:</strong> Upload a <code>cookies.txt</code> file to download age-restricted videos. Export cookies using a browser extension like <strong>Get cookies.txt LOCALLY</strong>.</p>
-                <input type="file" id="cookiesFile" accept=".txt" style="color: #fff; font-size: 14px; padding: 8px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; background: rgba(0,0,0,0.2);">
-                <div id="cookiesUploadStatus" style="font-size: 13px; color: var(--accent);"></div>
-            </div>
-        </div>
+
 
         <!-- Status Bar -->
         <div class="status-bar" id="statusBar">
