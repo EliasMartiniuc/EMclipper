@@ -404,7 +404,9 @@ async def process_stream(
         cookies_path = job_temp_dir / "cookies.txt"
         content = await cookies_file.read()
         cookies_path.write_bytes(content)
-        # Note: downloader.py will look for this path
+        logger.info(f"[{job_id}] Saved uploaded cookies.txt ({len(content)} bytes) to {cookies_path}")
+    else:
+        logger.info(f"[{job_id}] No cookies file uploaded (cookies_file={cookies_file}, filename={getattr(cookies_file, 'filename', None)})")
 
     queue = asyncio.Queue()
     loop = asyncio.get_running_loop()

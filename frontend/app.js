@@ -37,6 +37,17 @@ urlInput.addEventListener('keydown', (e) => {
 processBtn.addEventListener('click', startProcessing);
 stopBtn.addEventListener('click', stopProcessing);
 
+// Show confirmation when cookies file is selected
+if (cookiesFile) {
+    cookiesFile.addEventListener('change', () => {
+        if (cookiesFile.files.length > 0) {
+            cookiesUploadStatus.textContent = `✅ ${cookiesFile.files[0].name} selected — it will be used when you click Generate Clips.`;
+        } else {
+            cookiesUploadStatus.textContent = '';
+        }
+    });
+}
+
 // Main Processing Logic
 async function startProcessing() {
     const url = urlInput.value.trim();
@@ -285,19 +296,15 @@ function showError(msg) {
     errorBanner.innerHTML = `<strong>Error:</strong> ${escapeHtml(msg)}`;
     errorBanner.classList.add('visible');
 
-    // Show cookies upload if age-restricted
+    // Highlight cookies section if age-restricted
     if (msg.toLowerCase().includes('age-restricted')) {
-        cookiesUpload.style.display = 'block';
-        cookiesUploadStatus.textContent = '';
-        if (cookiesFile) cookiesFile.value = '';
-    } else {
-        cookiesUpload.style.display = 'none';
+        cookiesUploadStatus.textContent = '⚠️ This video is age-restricted. Please upload your cookies.txt above and click Generate again.';
+        cookiesUploadStatus.style.color = '#f59e0b';
     }
 }
 
 function hideError() {
     errorBanner.classList.remove('visible');
-    cookiesUpload.style.display = 'none';
 }
 
 function resetButtons() {

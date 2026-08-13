@@ -51,14 +51,12 @@
         <!-- Error Banner -->
         <div class="error-banner" id="errorBanner"></div>
         
-        <!-- Cookies Upload Form (Hidden by default) -->
-        <div class="cookies-upload" id="cookiesUpload" style="display: none; margin-top: 10px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                <p style="margin: 0; color: #a1a1aa; font-size: 14px;">This video requires you to sign in to confirm your age. To download it, please export your YouTube cookies using a browser extension like <strong>Get cookies.txt LOCALLY</strong> and upload the file below.</p>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <input type="file" id="cookiesFile" accept=".txt" style="color: #fff; font-size: 14px; flex: 1; padding: 8px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; background: rgba(0,0,0,0.2);">
-                </div>
-                <div id="cookiesUploadStatus" style="font-size: 14px; color: var(--text-muted);"></div>
+        <!-- Cookies Upload (Always visible, optional) -->
+        <div id="cookiesUpload" style="margin-top: 10px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <p style="margin: 0; color: #a1a1aa; font-size: 13px;">🍪 <strong>Optional:</strong> Upload a <code>cookies.txt</code> file to download age-restricted videos. Export cookies using a browser extension like <strong>Get cookies.txt LOCALLY</strong>.</p>
+                <input type="file" id="cookiesFile" accept=".txt" style="color: #fff; font-size: 14px; padding: 8px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; background: rgba(0,0,0,0.2);">
+                <div id="cookiesUploadStatus" style="font-size: 13px; color: var(--accent);"></div>
             </div>
         </div>
 
