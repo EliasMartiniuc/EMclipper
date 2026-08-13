@@ -36,8 +36,8 @@ def download_video(url: str, job_id: str) -> Tuple[Path, dict]:
     output_template = str(output_dir / "%(title).100s.%(ext)s")
 
     ydl_opts = {
-        # Format selection: best video and audio (FFmpeg will automatically merge into mp4)
-        "format": "bestvideo*+bestaudio/best",
+        # Format selection: cap at 720p for fast processing and optimal mobile clip quality
+        "format": "bestvideo[height<=720]+bestaudio/best[height<=720]/best",
         "outtmpl": output_template,
         "merge_output_format": "mp4",
         # ALWAYS use android and web player clients. This is mandatory on headless servers
