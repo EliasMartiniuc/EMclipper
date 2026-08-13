@@ -37,13 +37,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
 from schemas import JobRequest, JobStatus
-from config import BASE_DIR, DOWNLOADS_DIR, OUTPUTS_DIR, TEMP_DIR
+from config import BASE_DIR, DOWNLOADS_DIR, OUTPUTS_DIR, TEMP_DIR, USE_MODAL
 
 import downloader
 import transcriber
 import llm_agent
 import subtitles
 import renderer
+
+# Conditionally import Modal for serverless execution
+if USE_MODAL:
+    import modal
 
 # ─── Logging Setup ─────────────────────────────────────────────────────────────
 
@@ -120,9 +124,102 @@ jobs: Dict[str, Job] = {}
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+def _process_video_modal(job_id: str):
+    """
+    Delegate the full pipeline to a Modal serverless container.
+    
+    Calls the remote Modal function, waits for the result, then
+    syncs progress and clip info back into the local Job object
+    so the SSE endpoint can stream it to the frontend.
+    """
+    job = jobs[job_id]
+
+    try:
+        job.status = JobStatus.DOWNLOADING
+        job.add_progress("init", "🚀 Launching serverless container...")
+
+        # Read cookies if available (to pass to the remote container)
+        cookies_content = None
+        cookie_file = BASE_DIR / "cookies.txt"
+        if cookie_file.exists():
+            cookies_content = cookie_file.read_text()
+
+        # Look up the remote Modal function
+        process_fn = modal.Function.from_name("ai-video-clipper", "process_video_remote")
+
+        # Call Modal and wait for the result
+        result = process_fn.remote(
+            url=job.url,
+            job_id=job_id,
+            subtitles_enabled=job.subtitles_enabled,
+            cookies_content=cookies_content,
+        )
+
+        # Replay all progress messages from the remote container
+        for p in result.get("progress", []):
+            job.add_progress(p["stage"], p["message"])
+
+        job.video_title = result.get("video_title", "")
+
+        if result["status"] == "completed":
+            # Copy clip metadata and download clip files from Modal volume
+            get_clip_fn = modal.Function.from_name("ai-video-clipper", "get_clip_bytes")
+            
+            for clip_data in result.get("clips", []):
+                # Download clip bytes from Modal volume to local disk
+                output_dir = OUTPUTS_DIR / job_id
+                output_dir.mkdir(parents=True, exist_ok=True)
+                local_path = output_dir / clip_data["filename"]
+
+                clip_bytes = get_clip_fn.remote(
+                    job_id=job_id,
+                    filename=clip_data["filename"],
+                )
+                local_path.write_bytes(clip_bytes)
+
+                clip_result = {
+                    "index": clip_data["index"],
+                    "title": clip_data["title"],
+                    "output_path": str(local_path),
+                    "filename": clip_data["filename"],
+                    "duration": clip_data["duration"],
+                    "score": clip_data["score"],
+                    "reason": clip_data.get("reason", ""),
+                }
+                job.clips.append(clip_result)
+
+            # Clean up remote clips
+            try:
+                cleanup_fn = modal.Function.from_name("ai-video-clipper", "cleanup_job_clips")
+                cleanup_fn.remote(job_id=job_id)
+            except Exception:
+                pass  # Non-critical
+
+            job.status = JobStatus.COMPLETED
+            job.add_progress(
+                "complete",
+                f"✓ All {len(job.clips)} clips rendered in the cloud! "
+                f"Ready for download.",
+            )
+        else:
+            job.status = JobStatus.ERROR
+            job.error = result.get("error", "Unknown error in serverless container")
+            job.add_progress("error", f"✗ Pipeline failed: {job.error}")
+
+    except Exception as e:
+        error_msg = str(e)
+        logger.exception(f"Modal pipeline failed for job {job_id}")
+        job.status = JobStatus.ERROR
+        job.error = f"Serverless processing failed: {error_msg}"
+        job.add_progress("error", f"✗ Serverless processing failed: {error_msg}")
+
+
 def process_video(job_id: str):
     """
     Main processing pipeline — runs in a background thread.
+    
+    If USE_MODAL is enabled, delegates the entire pipeline to a
+    Modal serverless container. Otherwise, runs locally.
     
     Stages:
     1. Download video from YouTube
@@ -134,6 +231,10 @@ def process_video(job_id: str):
        b. Render final 9:16 letterboxed video
     """
     job = jobs[job_id]
+
+    if USE_MODAL:
+        _process_video_modal(job_id)
+        return
 
     def check_cancelled():
         """Check if the job was cancelled and raise if so."""

@@ -7,3 +7,4 @@ pydantic>=2.0.0
 aiofiles>=23.0.0
 sse-starlette>=2.0.0
 python-multipart>=0.0.6
+modal>=0.73.0

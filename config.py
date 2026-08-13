@@ -30,6 +30,10 @@ YOUTUBE_BROWSER = os.getenv("YOUTUBE_BROWSER", "")
 # Residential Proxy URL for bypassing YouTube Datacenter blocks (e.g. http://user:pass@ip:port)
 PROXY_URL = os.getenv("PROXY_URL", "")
 
+# ─── Serverless Execution (Modal) ─────────────────────────────────────────────
+# Set to "true" to offload processing to Modal serverless containers
+USE_MODAL = os.getenv("USE_MODAL", "false").lower() == "true"
+
 # ─── Whisper Transcription (Groq Cloud) ────────────────────────────────────────
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_WHISPER_MODEL = os.getenv("GROQ_WHISPER_MODEL", "whisper-large-v3-turbo")
