@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Tuple
 
 from yt_dlp import YoutubeDL
-from config import DOWNLOADS_DIR, TEMP_DIR, YOUTUBE_BROWSER, BASE_DIR, PROXY_URL
+from config import DOWNLOADS_DIR, TEMP_DIR, YOUTUBE_BROWSER, BASE_DIR, PROXY_URL, YOUTUBE_OAUTH_TOKEN
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,27 @@ def download_video(url: str, job_id: str) -> Tuple[Path, dict]:
     }
 
     cookie_file = BASE_DIR / "cookies.txt"
-    if cookie_file.exists():
+    if YOUTUBE_OAUTH_TOKEN:
+        logger.info("Using OAuth2 token from environment for yt-dlp authentication")
+        # Define a local cache directory for yt-dlp
+        cache_dir = BASE_DIR / ".cache" / "yt-dlp"
+        oauth_dir = cache_dir / "youtube-oauth2"
+        oauth_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Write the JSON token to the expected location
+        token_file = oauth_dir / "token.json"
+        try:
+            # Ensure the token is valid JSON before writing
+            token_data = json.loads(YOUTUBE_OAUTH_TOKEN)
+            with open(token_file, "w", encoding="utf-8") as f:
+                json.dump(token_data, f)
+            
+            ydl_opts["username"] = "oauth2"
+            ydl_opts["password"] = ""
+            ydl_opts["cache_dir"] = str(cache_dir)
+        except json.JSONDecodeError:
+            logger.error("YOUTUBE_OAUTH_TOKEN is not valid JSON. Ignoring OAuth.")
+    elif cookie_file.exists():
         logger.info("Using cookies.txt for yt-dlp authentication")
         ydl_opts["cookiefile"] = str(cookie_file)
     elif YOUTUBE_BROWSER:
@@ -138,7 +159,7 @@ def download_video(url: str, job_id: str) -> Tuple[Path, dict]:
             )
         elif "Requested format is not available" in error_msg:
             raise RuntimeError(
-                "YouTube blocked the video stream. This usually happens if you are using a blocked VPN/Proxy, or if it's an age-restricted video but your browser cookies couldn't be loaded (e.g., if Chrome is currently open). Try closing your browser, removing any proxies, or using a different YOUTUBE_BROWSER in .env."
+                "YouTube blocked the video stream. If this is an age-restricted video, your uploaded cookies.txt may have been wiped out by a server restart. Please re-upload cookies.txt and try again."
             )
         elif "HTTP Error 429" in error_msg or "Too Many Requests" in error_msg:
             raise RuntimeError(

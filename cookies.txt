@@ -4,7 +4,6 @@
 .tiktok.com	TRUE	/	TRUE	1801567226	tt_chain_token	YfCiEX1ilOyT3ORlSkNpKg==
 .tiktok.com	TRUE	/	TRUE	0	tt_csrf_token	khGmrYyN-lBLt3HWdkhONYfWPJzilwvBtEg4
 .tiktok.com	TRUE	/	TRUE	1816259242	ttwid	1%7C8sbnW3VKuW_LPwlM8I0RTFzfBDp23i5n4qTt2R_8IKk%7C1785155242%7Cb73dcc40ecc9e1aafab46eceba892b5c382deb75b056eb66db5c3c0880aa61cf
-.youtube.com	TRUE	/	TRUE	1786533742	GPS	1
 .youtube.com	TRUE	/	TRUE	1800889207	NID	533=b8z-TiUUwczIYxHzcOKB5LTVw75LvDOTt1Jntzy2wV5HgC_WzAkHqoj4IY95YDSkLuosygu0j4QXgaFeiunHk3V8z1hwsIaNwEFvYsYDtQ2zdit93JiwCTUDFVyxospppAq3OA_91bDmiTQZhhJ9kwr_dVyx5hwiwIjf7w1FNcM7SPuwjuksOcWoPJD4cSloDlinp620H_qP0IAX0bczzIfU4EaQ4fkZkjx2-_nG95Bn6xT0U6r-BWZm8qnZfB-82Gh5enH6oDYTRZoeiXY2UbQ
 .youtube.com	TRUE	/	FALSE	0	PREF	f4=4000000&f6=40000000&tz=UTC&f5=20000&f7=140&hl=en
 .youtube.com	TRUE	/	TRUE	1816870260	SOCS	CAISEwgDEgk5Mzc2Njk1NDcaAml0IAEaBgiA64bSBg

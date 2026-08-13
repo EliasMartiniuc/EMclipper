@@ -30,6 +30,9 @@ YOUTUBE_BROWSER = os.getenv("YOUTUBE_BROWSER", "")
 # Residential Proxy URL for bypassing YouTube Datacenter blocks (e.g. http://user:pass@ip:port)
 PROXY_URL = os.getenv("PROXY_URL", "")
 
+# OAuth2 Token (JSON string) for age-restricted bypassing without cookies
+YOUTUBE_OAUTH_TOKEN = os.getenv("YOUTUBE_OAUTH_TOKEN", "")
+
 # ─── Serverless Execution (Modal) ─────────────────────────────────────────────
 # Set to "true" to offload processing to Modal serverless containers
 USE_MODAL = os.getenv("USE_MODAL", "false").lower() == "true"
