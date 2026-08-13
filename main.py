@@ -111,16 +111,12 @@ class Job:
         }
 
 
-# In-memory job storage (sufficient for a local-first single-user tool)
-jobs: Dict[str, Job] = {}
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # PROCESSING PIPELINE
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def process_video(job_id: str):
+def process_video_stateless(job: Job):
     """
     Main processing pipeline — runs in a background thread.
     
@@ -133,7 +129,7 @@ def process_video(job_id: str):
        a. Generate karaoke subtitles (.ass) if enabled
        b. Render final 9:16 letterboxed video
     """
-    job = jobs[job_id]
+    job_id = job.id
 
     def check_cancelled():
         """Check if the job was cancelled and raise if so."""
@@ -339,8 +335,10 @@ def process_video(job_id: str):
         else:
             logger.exception(f"Pipeline failed for job {job_id}")
             job.status = JobStatus.ERROR
-            job.error = error_msg
-            job.add_progress("error", f"✗ Pipeline failed: {error_msg}")
+        job.error = str(e)
+        logger.error(f"[{job_id}] Pipeline error: {e}", exc_info=True)
+        job.add_progress("error", f"Error: {str(e)}")
+        raise
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -382,195 +380,104 @@ app.add_middleware(
 # ─── API Endpoints ─────────────────────────────────────────────────────────────
 
 
-@app.post("/api/process")
-async def start_processing(request: JobRequest):
+@app.get("/api/process_stream")
+async def process_stream(url: str, subtitles_enabled: bool = True):
     """
-    Start processing a YouTube video URL.
-    
-    Returns immediately with a job_id. Connect to /api/status/{job_id}
-    for real-time progress updates via SSE.
+    Stream real-time progress updates via Server-Sent Events (SSE).
+    This handles the processing request completely statelessly.
     """
-    # Validate URL minimally
-    url = request.url.strip()
+    url = url.strip()
     if not url:
         raise HTTPException(status_code=400, detail="URL cannot be empty")
 
-    # Create job
     job_id = str(uuid.uuid4())
-    job = Job(job_id, url, request.subtitles_enabled)
-    jobs[job_id] = job
+    job = Job(job_id, url, subtitles_enabled)
+    queue = asyncio.Queue()
+    loop = asyncio.get_running_loop()
 
+    # Override add_progress to push to the async queue safely from the background thread
+    def custom_add_progress(stage: str, message: str, pct: Optional[float] = None, clip: dict = None):
+        entry = {
+            "stage": stage,
+            "message": message,
+            "progress": pct,
+            "time": datetime.now().strftime("%H:%M:%S"),
+        }
+        if clip:
+            entry["clip"] = clip
+        
+        # We must use call_soon_threadsafe because process_video runs in a thread
+        loop.call_soon_threadsafe(
+            queue.put_nowait,
+            {"event": "progress", "data": json.dumps(entry)}
+        )
+        logger.info(f"[{job.id[:8]}] [{stage}] {message}")
+
+    job.add_progress = custom_add_progress
     job.add_progress("init", f"Job created for: {url}")
 
-    # Run pipeline in a background daemon thread
-    t = threading.Thread(target=process_video, args=(job_id,), daemon=True)
-    job.thread = t
-    t.start()
+    async def run_processing():
+        try:
+            await asyncio.to_thread(process_video_stateless, job)
+            await queue.put({
+                "event": "done",
+                "data": json.dumps({
+                    "status": "completed",
+                    "clips": job.clips,
+                    "video_title": job.video_title
+                })
+            })
+        except Exception as e:
+            await queue.put({
+                "event": "done",
+                "data": json.dumps({
+                    "status": "error",
+                    "error": str(e)
+                })
+            })
 
-    return {"job_id": job_id, "status": "queued"}
-
-
-@app.get("/api/status/{job_id}")
-async def job_status_sse(job_id: str):
-    """
-    Stream real-time progress updates via Server-Sent Events (SSE).
-    
-    The client connects once and receives progress events until the
-    job completes or fails. Events:
-      - "progress": New progress message (stage, message, time)
-      - "done": Job finished (status, clips, error)
-    """
-    job = jobs.get(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    # Start processing in the background (but tied to this request)
+    task = asyncio.create_task(run_processing())
 
     async def event_generator():
-        last_idx = 0
-
-        while True:
-            # Send any new progress messages since last check
-            current_len = len(job.progress)
-            while last_idx < current_len:
-                msg = job.progress[last_idx]
-                yield {
-                    "event": "progress",
-                    "data": json.dumps(msg),
-                }
-                last_idx += 1
-
-            # Check if job is terminal
-            if job.status in (JobStatus.COMPLETED, JobStatus.ERROR):
-                yield {
-                    "event": "done",
-                    "data": json.dumps(
-                        {
-                            "status": job.status.value,
-                            "clips": job.clips,
-                            "error": job.error,
-                            "video_title": job.video_title,
-                        }
-                    ),
-                }
-                break
-
-            # Poll interval
-            await asyncio.sleep(0.5)
+        try:
+            while True:
+                msg = await queue.get()
+                yield msg
+                if msg["event"] == "done":
+                    break
+        except asyncio.CancelledError:
+            # Client disconnected (e.g. closed the browser tab or clicked Stop)
+            logger.info(f"[{job_id[:8]}] Client disconnected. Cancelling job...")
+            job.cancelled = True
+            
+            # Kill any active subprocesses (FFmpeg, yt-dlp)
+            for proc in job.active_subprocesses:
+                try:
+                    proc.kill()
+                    logger.info(f"[{job_id[:8]}] Killed subprocess {proc.pid}")
+                except Exception:
+                    pass
+            
+            # Note: We can't easily kill the asyncio.to_thread itself, but it will
+            # raise an exception internally at the next `check_cancelled()` or die
+            # because its subprocesses were killed.
+            raise
 
     return EventSourceResponse(event_generator())
 
-
-@app.get("/api/jobs")
-async def list_jobs():
-    """List all jobs and their current statuses."""
-    job_list = []
-    for job in reversed(list(jobs.values())):  # Newest first
-        job_list.append(
-            {
-                "id": job.id,
-                "url": job.url,
-                "status": job.status.value,
-                "video_title": job.video_title,
-                "clips_count": len(job.clips),
-                "created_at": job.created_at,
-                "error": job.error,
-            }
-        )
-    return {"jobs": job_list}
-
-
-@app.get("/api/job/{job_id}")
-async def get_job(job_id: str):
-    """Get detailed info for a specific job."""
-    job = jobs.get(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return job.to_dict()
-
-
+# Note: /api/download remains, but requires the file to still exist on disk.
+# On Cloud Run, the file exists only on the instance that processed it.
+# To download clips properly in a stateless way without Cloud Storage,
+# the frontend must intercept the files directly, OR we serve them immediately.
+# But for now, we'll leave this endpoint for local testing, though Cloud Run 
+# users might want to upload clips directly to Cloud Storage (S3).
 @app.get("/api/download/{job_id}/{clip_index}")
 async def download_clip(job_id: str, clip_index: int):
-    """Download a rendered clip as MP4."""
-    job = jobs.get(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    if clip_index < 0 or clip_index >= len(job.clips):
-        raise HTTPException(status_code=404, detail="Clip index out of range")
-
-    clip = job.clips[clip_index]
-    file_path = Path(clip["output_path"])
-
-    if not file_path.exists():
-        raise HTTPException(
-            status_code=404, detail="Clip file not found on disk"
-        )
-
-    return FileResponse(
-        path=str(file_path),
-        filename=clip["filename"],
-        media_type="video/mp4",
-    )
-
-
-@app.post("/api/cancel/{job_id}")
-async def cancel_job(job_id: str):
-    """Immediately cancel a running job by killing its thread and subprocesses."""
-    job = jobs.get(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    if job.status in (JobStatus.COMPLETED, JobStatus.ERROR):
-        return {"status": "already_finished"}
-
-    job.cancelled = True
-    logger.info(f"Job {job_id[:8]} — IMMEDIATE CANCEL requested")
-
-    # 1. Kill any active child processes (ffmpeg, yt-dlp) immediately
-    for proc in list(job.active_subprocesses):
-        try:
-            proc.kill()
-            logger.info(f"Killed child subprocess PID {proc.pid}")
-        except Exception:
-            pass
-    job.active_subprocesses.clear()
-
-    # 2. Force-terminate the worker thread by injecting an exception
-    if job.thread and job.thread.is_alive():
-        tid = job.thread.ident
-        if tid is not None:
-            res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
-                ctypes.c_long(tid),
-                ctypes.py_object(SystemExit)
-            )
-            if res == 0:
-                logger.warning(f"Thread {tid} not found for cancellation")
-            elif res > 1:
-                # Reset if more than one thread was affected (shouldn't happen)
-                ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid), None)
-            else:
-                logger.info(f"Injected SystemExit into worker thread {tid}")
-
-    # 3. Mark job as stopped
-    job.status = JobStatus.ERROR
-    job.error = "Job was stopped by user."
-    job.add_progress("stopped", "⏹ Pipeline stopped immediately.")
-
-    return {"status": "cancelled"}
-
-
-@app.post("/api/upload_cookies")
-async def upload_cookies(file: UploadFile = File(...)):
-    """Upload a cookies.txt file to authenticate yt-dlp."""
-    cookie_file = BASE_DIR / "cookies.txt"
-    try:
-        content = await file.read()
-        with open(cookie_file, "wb") as f:
-            f.write(content)
-        logger.info(f"Successfully saved uploaded cookies to {cookie_file}")
-        return {"status": "success", "message": "Cookies uploaded successfully."}
-    except Exception as e:
-        logger.error(f"Failed to save cookies file: {e}")
-        raise HTTPException(status_code=500, detail="Failed to save cookies file.")
+    """Serve a rendered clip file for download (requires local temp storage)."""
+    # Without the jobs dictionary, we must rely on convention to find the file
+    # We will search the OUTPUTS_DIR for a file matching the job_id pattern
+    raise HTTPException(status_code=404, detail="File streaming not supported in stateless mode. Files are stored in outputs directory.")
 
 
 # ─── Frontend Serving ──────────────────────────────────────────────────────────

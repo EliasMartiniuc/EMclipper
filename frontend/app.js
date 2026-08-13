@@ -20,11 +20,7 @@ const errorBanner = document.getElementById('errorBanner');
 const subtitlesToggle = document.getElementById('subtitlesToggle');
 const mouseGlow = document.getElementById('mouseGlow');
 
-// Cookies Upload Elements
-const cookiesUpload = document.getElementById('cookiesUpload');
-const cookiesFile = document.getElementById('cookiesFile');
-const uploadCookiesBtn = document.getElementById('uploadCookiesBtn');
-const cookiesUploadStatus = document.getElementById('cookiesUploadStatus');
+// Cookies Upload Elements (Removed for stateless deployment)
 
 // Event Listeners
 document.addEventListener('mousemove', (e) => {
@@ -39,48 +35,8 @@ urlInput.addEventListener('keydown', (e) => {
 processBtn.addEventListener('click', startProcessing);
 stopBtn.addEventListener('click', stopProcessing);
 
-uploadCookiesBtn.addEventListener('click', async () => {
-    const file = cookiesFile.files[0];
-    if (!file) {
-        cookiesUploadStatus.textContent = 'Please select a file first.';
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    uploadCookiesBtn.disabled = true;
-    uploadCookiesBtn.textContent = 'Uploading...';
-    cookiesUploadStatus.textContent = '';
-
-    try {
-        const resp = await fetch(`${API}/api/upload_cookies`, {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!resp.ok) {
-            throw new Error(`Upload failed (${resp.status})`);
-        }
-        
-        cookiesUploadStatus.style.color = 'var(--accent)';
-        cookiesUploadStatus.textContent = 'Cookies uploaded successfully! You can now click "Generate Clips" again.';
-        
-        setTimeout(() => {
-            hideError();
-        }, 5000);
-        
-    } catch (err) {
-        cookiesUploadStatus.style.color = '#ef4444';
-        cookiesUploadStatus.textContent = err.message;
-    } finally {
-        uploadCookiesBtn.disabled = false;
-        uploadCookiesBtn.textContent = 'Upload Cookies';
-    }
-});
-
 // Main Processing Logic
-async function startProcessing() {
+function startProcessing() {
     const url = urlInput.value.trim();
     if (!url) {
         showError('Please enter a YouTube URL');
@@ -104,59 +60,26 @@ async function startProcessing() {
     statusDot.className = 'status-dot';
     statusText.innerHTML = '<strong>Starting...</strong>';
 
-    try {
-        const subtitles_enabled = subtitlesToggle.checked;
-        const resp = await fetch(`${API}/api/process`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url, subtitles_enabled }),
-        });
-
-        const bodyText = await resp.text();
-
-        if (!resp.ok) {
-            let detail = `Server error (${resp.status})`;
-            try {
-                const errJson = JSON.parse(bodyText);
-                detail = errJson.detail || errJson.message || detail;
-            } catch (_) {
-                if (bodyText) detail = bodyText.substring(0, 200);
-            }
-            throw new Error(detail);
-        }
-
-        let data;
-        try {
-            data = JSON.parse(bodyText);
-        } catch (_) {
-            throw new Error('Server returned invalid JSON: ' + bodyText.substring(0, 100));
-        }
-
-        currentJobId = data.job_id;
-        connectSSE(currentJobId);
-
-    } catch (err) {
-        showError(err.message);
-        resetButtons();
-    }
-}
-
-function connectSSE(jobId) {
+    const subtitles_enabled = subtitlesToggle.checked;
+    
+    // Connect directly to the stateless process_stream endpoint
     if (eventSource) {
         eventSource.close();
     }
-
-    eventSource = new EventSource(`${API}/api/status/${jobId}`);
+    
+    const streamUrl = `${API}/api/process_stream?url=${encodeURIComponent(url)}&subtitles_enabled=${subtitles_enabled}`;
+    eventSource = new EventSource(streamUrl);
 
     eventSource.addEventListener('progress', (e) => {
         const msg = JSON.parse(e.data);
         appendLog(msg);
 
+        // Note: For stateless download, the backend would need to push to Cloud Storage
+        // Right now, clips won't download properly on Cloud Run because they are on a random ephemeral instance.
         if (msg.clip) {
-            displaySingleClip(msg.clip, currentJobId);
+            displaySingleClip(msg.clip, "stateless"); 
         }
 
-        // Stage label mapping for the UI
         const stageLabels = {
             'init': 'Initializing',
             'download': 'Downloading',
@@ -187,7 +110,7 @@ function connectSSE(jobId) {
                 time: new Date().toLocaleTimeString('en-GB', { hour12: false }),
             });
 
-            displayClips(result.clips, currentJobId);
+            displayClips(result.clips, "stateless");
             
         } else if (result.error && result.error.includes('stopped by user')) {
             statusDot.classList.add('error');
@@ -206,68 +129,30 @@ function connectSSE(jobId) {
         resetButtons();
     });
 
-    eventSource.onerror = () => {
+    eventSource.onerror = (err) => {
         eventSource.close();
         eventSource = null;
-        setTimeout(() => checkJobStatus(jobId), 2000);
+        showError('Lost connection to server or server crashed.');
+        resetButtons();
     };
 }
 
-async function checkJobStatus(jobId) {
-    try {
-        const resp = await fetch(`${API}/api/job/${jobId}`);
-        if (!resp.ok) {
-            if (resp.status === 404) {
-                showError('Job session expired (server redeployed or restarted). Please click Generate Clips to start fresh.');
-            } else {
-                showError(`Server error (${resp.status})`);
-            }
-            resetButtons();
-            return;
-        }
-
-        const job = await resp.json();
-
-        if (job.status === 'completed') {
-            statusDot.classList.add('done');
-            statusText.innerHTML = `<strong>Complete!</strong>`;
-            displayClips(job.clips, jobId);
-        } else if (job.status === 'error') {
-            statusDot.classList.add('error');
-            if (job.error && job.error.includes('stopped by user')) {
-                statusText.innerHTML = `<strong>Stopped</strong> — Pipeline was cancelled`;
-            } else {
-                showError(job.error || 'Unknown error');
-            }
-        } else {
-            connectSSE(jobId);
-            return;
-        }
-    } catch (err) {
-        showError('Lost connection to server');
-    }
-    resetButtons();
-}
-
-async function stopProcessing() {
-    if (!currentJobId) return;
-
-    stopBtn.disabled = true;
-    stopBtn.textContent = 'Stopping...';
-
-    try {
-        await fetch(`${API}/api/cancel/${currentJobId}`, { method: 'POST' });
+function stopProcessing() {
+    if (eventSource) {
+        // Closing the SSE connection will trigger an asyncio.CancelledError on the server
+        eventSource.close();
+        eventSource = null;
+        
         appendLog({
             stage: 'stopped',
             message: 'Stop requested — pipeline is terminating...',
             time: new Date().toLocaleTimeString('en-GB', { hour12: false }),
         });
-    } catch (err) {
-        showError('Failed to stop: ' + err.message);
+        
+        statusDot.classList.add('error');
+        statusText.innerHTML = `<strong>Stopped</strong> — Pipeline was cancelled`;
+        resetButtons();
     }
-
-    stopBtn.disabled = false;
-    stopBtn.textContent = '⏹ Stop';
 }
 
 // UI Helpers
