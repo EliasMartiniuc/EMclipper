@@ -474,10 +474,21 @@ async def process_stream(url: str, subtitles_enabled: bool = True):
 # users might want to upload clips directly to Cloud Storage (S3).
 @app.get("/api/download/{job_id}/{clip_index}")
 async def download_clip(job_id: str, clip_index: int):
-    """Serve a rendered clip file for download (requires local temp storage)."""
-    # Without the jobs dictionary, we must rely on convention to find the file
-    # We will search the OUTPUTS_DIR for a file matching the job_id pattern
-    raise HTTPException(status_code=404, detail="File streaming not supported in stateless mode. Files are stored in outputs directory.")
+    """Serve a rendered clip file for download from the stateless temp directory."""
+    job_dir = OUTPUTS_DIR / job_id
+    if not job_dir.exists():
+        raise HTTPException(status_code=404, detail="Job outputs not found on this server instance.")
+
+    # Search for the clip file
+    clip_path = job_dir / f"clip_{clip_index}.mp4"
+    if not clip_path.exists():
+        raise HTTPException(status_code=404, detail="Clip file not found.")
+
+    return FileResponse(
+        path=str(clip_path),
+        filename=f"ai_clip_{job_id[:6]}_{clip_index}.mp4",
+        media_type="video/mp4",
+    )
 
 
 # ─── Frontend Serving ──────────────────────────────────────────────────────────
