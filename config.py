@@ -30,6 +30,9 @@ YOUTUBE_BROWSER = os.getenv("YOUTUBE_BROWSER", "")
 # Residential Proxy URL for bypassing YouTube Datacenter blocks (e.g. http://user:pass@ip:port)
 PROXY_URL = os.getenv("PROXY_URL", "")
 
+# OAuth token string for bypassing YouTube restrictions
+YOUTUBE_OAUTH_TOKEN = os.getenv("YOUTUBE_OAUTH_TOKEN", "")
+
 # ─── Whisper Transcription (Groq Cloud) ────────────────────────────────────────
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_WHISPER_MODEL = os.getenv("GROQ_WHISPER_MODEL", "whisper-large-v3-turbo")
