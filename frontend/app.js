@@ -74,10 +74,9 @@ function startProcessing() {
         const msg = JSON.parse(e.data);
         appendLog(msg);
 
-        // Note: For stateless download, the backend would need to push to Cloud Storage
-        // Right now, clips won't download properly on Cloud Run because they are on a random ephemeral instance.
+        // Pass the actual job_id so the download links work
         if (msg.clip) {
-            displaySingleClip(msg.clip, "stateless"); 
+            displaySingleClip(msg.clip, msg.job_id); 
         }
 
         const stageLabels = {
@@ -110,7 +109,7 @@ function startProcessing() {
                 time: new Date().toLocaleTimeString('en-GB', { hour12: false }),
             });
 
-            displayClips(result.clips, "stateless");
+            displayClips(result.clips, result.job_id);
             
         } else if (result.error && result.error.includes('stopped by user')) {
             statusDot.classList.add('error');

@@ -395,13 +395,13 @@ async def process_stream(url: str, subtitles_enabled: bool = True):
     queue = asyncio.Queue()
     loop = asyncio.get_running_loop()
 
-    # Override add_progress to push to the async queue safely from the background thread
     def custom_add_progress(stage: str, message: str, pct: Optional[float] = None, clip: dict = None):
         entry = {
             "stage": stage,
             "message": message,
             "progress": pct,
             "time": datetime.now().strftime("%H:%M:%S"),
+            "job_id": job_id,
         }
         if clip:
             entry["clip"] = clip
@@ -424,7 +424,8 @@ async def process_stream(url: str, subtitles_enabled: bool = True):
                 "data": json.dumps({
                     "status": "completed",
                     "clips": job.clips,
-                    "video_title": job.video_title
+                    "video_title": job.video_title,
+                    "job_id": job_id
                 })
             })
         except Exception as e:
