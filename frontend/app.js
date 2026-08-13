@@ -218,20 +218,10 @@ function displayClips(clips, jobId) {
 function showError(msg) {
     errorBanner.innerHTML = `<strong>Error:</strong> ${escapeHtml(msg)}`;
     errorBanner.classList.add('visible');
-
-    // Show cookies upload if age-restricted
-    if (msg.toLowerCase().includes('age-restricted')) {
-        cookiesUpload.style.display = 'block';
-        cookiesUploadStatus.textContent = '';
-        cookiesFile.value = '';
-    } else {
-        cookiesUpload.style.display = 'none';
-    }
 }
 
 function hideError() {
     errorBanner.classList.remove('visible');
-    cookiesUpload.style.display = 'none';
 }
 
 function resetButtons() {
