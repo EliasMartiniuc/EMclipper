@@ -3,7 +3,7 @@ const API = ''; // Same origin
 
 // State
 let currentJobId = null;
-let eventSource = null;
+let abortController = null;
 
 // DOM Elements
 const urlInput = document.getElementById('urlInput');
@@ -20,11 +20,13 @@ const errorBanner = document.getElementById('errorBanner');
 const subtitlesToggle = document.getElementById('subtitlesToggle');
 const mouseGlow = document.getElementById('mouseGlow');
 
-// Cookies Upload Elements (Removed for stateless deployment)
+// Cookies Upload Elements
+const cookiesUpload = document.getElementById('cookiesUpload');
+const cookiesFile = document.getElementById('cookiesFile');
+const cookiesUploadStatus = document.getElementById('cookiesUploadStatus');
 
 // Event Listeners
 document.addEventListener('mousemove', (e) => {
-    // Only move if we aren't hovering over an interactive element that should have its own focus
     mouseGlow.style.left = `${e.clientX}px`;
     mouseGlow.style.top = `${e.clientY}px`;
 });
@@ -36,7 +38,7 @@ processBtn.addEventListener('click', startProcessing);
 stopBtn.addEventListener('click', stopProcessing);
 
 // Main Processing Logic
-function startProcessing() {
+async function startProcessing() {
     const url = urlInput.value.trim();
     if (!url) {
         showError('Please enter a YouTube URL');
@@ -62,16 +64,93 @@ function startProcessing() {
 
     const subtitles_enabled = subtitlesToggle.checked;
     
-    // Connect directly to the stateless process_stream endpoint
-    if (eventSource) {
-        eventSource.close();
+    // Abort previous stream if running
+    if (abortController) {
+        abortController.abort();
     }
-    
-    const streamUrl = `${API}/api/process_stream?url=${encodeURIComponent(url)}&subtitles_enabled=${subtitles_enabled}`;
-    eventSource = new EventSource(streamUrl);
+    abortController = new AbortController();
 
-    eventSource.addEventListener('progress', (e) => {
-        const msg = JSON.parse(e.data);
+    const formData = new FormData();
+    formData.append('url', url);
+    formData.append('subtitles_enabled', subtitles_enabled);
+    
+    if (cookiesFile && cookiesFile.files.length > 0) {
+        formData.append('cookies_file', cookiesFile.files[0]);
+    }
+
+    try {
+        const response = await fetch(`${API}/api/process_stream`, {
+            method: 'POST',
+            body: formData,
+            signal: abortController.signal
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Server returned ${response.status}: ${errText}`);
+        }
+
+        await processFetchStream(response);
+
+    } catch (err) {
+        if (err.name === 'AbortError') {
+            // Cancelled intentionally
+        } else {
+            console.error(err);
+            showError('Lost connection to server or server crashed.');
+            resetButtons();
+        }
+    }
+}
+
+async function processFetchStream(response) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        let boundary = buffer.indexOf('\n\n');
+        if (boundary === -1) boundary = buffer.indexOf('\r\n\r\n');
+        
+        while (boundary !== -1) {
+            const separatorLen = buffer.startsWith('\r\n', boundary) ? 4 : 2;
+            const block = buffer.slice(0, boundary);
+            buffer = buffer.slice(boundary + separatorLen);
+            
+            let eventType = 'message';
+            let dataStr = '';
+            
+            const lines = block.split(/\r?\n/);
+            for (const line of lines) {
+                if (line.startsWith('event: ')) {
+                    eventType = line.substring(7).trim();
+                } else if (line.startsWith('data: ')) {
+                    dataStr += line.substring(6);
+                }
+            }
+            
+            if (dataStr) {
+                try {
+                    const payload = JSON.parse(dataStr);
+                    handleStreamEvent(eventType, payload);
+                } catch (e) {
+                    console.error("Parse error", e);
+                }
+            }
+            
+            boundary = buffer.indexOf('\n\n');
+            if (boundary === -1) boundary = buffer.indexOf('\r\n\r\n');
+        }
+    }
+}
+
+function handleStreamEvent(eventType, msg) {
+    if (eventType === 'progress') {
         appendLog(msg);
 
         // Pass the actual job_id so the download links work
@@ -92,26 +171,22 @@ function startProcessing() {
         };
         const label = stageLabels[msg.stage] || msg.stage;
         statusText.innerHTML = `<strong>${label}</strong> — ${msg.message}`;
-    });
+    } else if (eventType === 'done') {
+        abortController = null;
 
-    eventSource.addEventListener('done', (e) => {
-        const result = JSON.parse(e.data);
-        eventSource.close();
-        eventSource = null;
-
-        if (result.status === 'completed') {
+        if (msg.status === 'completed') {
             statusDot.classList.add('done');
-            statusText.innerHTML = `<strong>Complete!</strong> ${result.clips.length} clips generated`;
+            statusText.innerHTML = `<strong>Complete!</strong> ${msg.clips.length} clips generated`;
 
             appendLog({
                 stage: 'complete',
-                message: `All done! ${result.clips.length} clips ready.`,
+                message: `All done! ${msg.clips.length} clips ready.`,
                 time: new Date().toLocaleTimeString('en-GB', { hour12: false }),
             });
 
-            displayClips(result.clips, result.job_id);
+            displayClips(msg.clips, msg.job_id);
             
-        } else if (result.error && result.error.includes('stopped by user')) {
+        } else if (msg.error && msg.error.includes('stopped by user')) {
             statusDot.classList.add('error');
             statusText.innerHTML = `<strong>Stopped</strong> — Pipeline was cancelled`;
             appendLog({
@@ -121,26 +196,18 @@ function startProcessing() {
             });
         } else {
             statusDot.classList.add('error');
-            statusText.innerHTML = `<strong>Failed</strong> — ${result.error || 'Unknown error'}`;
-            showError(result.error || 'Pipeline failed');
+            statusText.innerHTML = `<strong>Failed</strong> — ${msg.error || 'Unknown error'}`;
+            showError(msg.error || 'Pipeline failed');
         }
 
         resetButtons();
-    });
-
-    eventSource.onerror = (err) => {
-        eventSource.close();
-        eventSource = null;
-        showError('Lost connection to server or server crashed.');
-        resetButtons();
-    };
+    }
 }
 
 function stopProcessing() {
-    if (eventSource) {
-        // Closing the SSE connection will trigger an asyncio.CancelledError on the server
-        eventSource.close();
-        eventSource = null;
+    if (abortController) {
+        abortController.abort();
+        abortController = null;
         
         appendLog({
             stage: 'stopped',
@@ -217,10 +284,20 @@ function displayClips(clips, jobId) {
 function showError(msg) {
     errorBanner.innerHTML = `<strong>Error:</strong> ${escapeHtml(msg)}`;
     errorBanner.classList.add('visible');
+
+    // Show cookies upload if age-restricted
+    if (msg.toLowerCase().includes('age-restricted')) {
+        cookiesUpload.style.display = 'block';
+        cookiesUploadStatus.textContent = '';
+        if (cookiesFile) cookiesFile.value = '';
+    } else {
+        cookiesUpload.style.display = 'none';
+    }
 }
 
 function hideError() {
     errorBanner.classList.remove('visible');
+    cookiesUpload.style.display = 'none';
 }
 
 function resetButtons() {

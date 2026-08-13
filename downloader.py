@@ -63,10 +63,15 @@ def download_video(url: str, job_id: str) -> Tuple[Path, dict]:
         "progress_hooks": [_progress_hook],
     }
 
-    cookie_file = BASE_DIR / "cookies.txt"
-    if cookie_file.exists():
-        logger.info("Using cookies.txt for yt-dlp authentication")
-        ydl_opts["cookiefile"] = str(cookie_file)
+    job_cookie_file = TEMP_DIR / job_id / "cookies.txt"
+    global_cookie_file = BASE_DIR / "cookies.txt"
+    
+    if job_cookie_file.exists():
+        logger.info("Using uploaded cookies.txt for yt-dlp authentication")
+        ydl_opts["cookiefile"] = str(job_cookie_file)
+    elif global_cookie_file.exists():
+        logger.info("Using global cookies.txt for yt-dlp authentication")
+        ydl_opts["cookiefile"] = str(global_cookie_file)
     elif YOUTUBE_BROWSER:
         logger.info(f"Using browser cookies from: {YOUTUBE_BROWSER}")
         ydl_opts["cookiesfrombrowser"] = (YOUTUBE_BROWSER.lower(),)

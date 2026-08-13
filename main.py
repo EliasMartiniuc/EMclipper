@@ -380,11 +380,15 @@ app.add_middleware(
 # ─── API Endpoints ─────────────────────────────────────────────────────────────
 
 
-@app.get("/api/process_stream")
-async def process_stream(url: str, subtitles_enabled: bool = True):
+@app.post("/api/process_stream")
+async def process_stream(
+    url: str = Form(...), 
+    subtitles_enabled: bool = Form(True),
+    cookies_file: UploadFile = File(None)
+):
     """
     Stream real-time progress updates via Server-Sent Events (SSE).
-    This handles the processing request completely statelessly.
+    This handles the processing request completely statelessly via POST.
     """
     url = url.strip()
     if not url:
@@ -392,6 +396,16 @@ async def process_stream(url: str, subtitles_enabled: bool = True):
 
     job_id = str(uuid.uuid4())
     job = Job(job_id, url, subtitles_enabled)
+    
+    if cookies_file and cookies_file.filename:
+        # Create temp dir for this job and save cookies
+        job_temp_dir = TEMP_DIR / job_id
+        job_temp_dir.mkdir(parents=True, exist_ok=True)
+        cookies_path = job_temp_dir / "cookies.txt"
+        content = await cookies_file.read()
+        cookies_path.write_bytes(content)
+        # Note: downloader.py will look for this path
+
     queue = asyncio.Queue()
     loop = asyncio.get_running_loop()
 
