@@ -314,9 +314,28 @@ function appendLog(msg) {
 
 function displaySingleClip(clip, jobId) {
     clipsSection.classList.add('visible');
-    // Use the /outputs static mount - handles range requests for video streaming
-    const videoUrl = `${API}/outputs/${jobId}/${encodeURIComponent(clip.filename)}`;
-    const downloadUrl = `${API}/api/download/${jobId}/${encodeURIComponent(clip.filename)}`;
+
+    // Convert base64 video data to a Blob URL for in-browser playback & download.
+    // This completely avoids making new HTTP requests to (potentially different) server instances.
+    let blobUrl = '';
+    if (clip.video_data) {
+        try {
+            const byteChars = atob(clip.video_data);
+            const byteNumbers = new Array(byteChars.length);
+            for (let i = 0; i < byteChars.length; i++) {
+                byteNumbers[i] = byteChars.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'video/mp4' });
+            blobUrl = URL.createObjectURL(blob);
+        } catch (e) {
+            console.error('Failed to decode video data:', e);
+        }
+    }
+
+    // Fallback to server URL if no base64 data (e.g. old cached clips)
+    const videoUrl = blobUrl || `${API}/outputs/${jobId}/${encodeURIComponent(clip.filename)}`;
+    const downloadUrl = blobUrl || `${API}/api/download/${jobId}/${encodeURIComponent(clip.filename)}`;
 
     const card = document.createElement('div');
     card.className = 'clip-card';
@@ -336,23 +355,8 @@ function displaySingleClip(clip, jobId) {
                 </svg>
                 Download HD
             </a>
-            <div style="margin-top: 8px; font-size: 11px; text-align: center;">
-                <a href="${API}/api/debug/outputs/${jobId}" target="_blank" style="color: #a1a1aa; text-decoration: underline;">
-                    Debug Files (${jobId.substring(0, 8)}...)
-                </a>
-            </div>
         </div>
     `;
-
-    const videoEl = card.querySelector('video');
-    videoEl.onerror = () => {
-        console.warn(`Video failed to load from ${videoUrl}`);
-        const errorMsg = document.createElement('div');
-        errorMsg.style.cssText = 'color: #f87171; font-size: 12px; padding: 8px; text-align: center; background: rgba(248,113,113,0.1); border-radius: 4px; margin: 4px;';
-        errorMsg.innerHTML = `⚠️ Preview load failed. <a href="${downloadUrl}" target="_blank" style="color: #38bdf8; text-decoration: underline;">Try direct link</a> or <a href="${API}/api/debug/outputs/${jobId}" target="_blank" style="color: #38bdf8; text-decoration: underline;">Check Server Files</a>`;
-        card.insertBefore(errorMsg, card.querySelector('.clip-info'));
-    };
-
     clipsGrid.appendChild(card);
 }
 

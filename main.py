@@ -19,6 +19,7 @@ Run:
 
 import uuid
 import json
+import base64
 import asyncio
 import logging
 import threading
@@ -314,18 +315,28 @@ def process_video_stateless(job: Job):
             )
 
             # Record the clip result
+            file_size_mb = output_filepath.stat().st_size / (1024 * 1024)
+            
+            # Read the rendered video and base64-encode it for streaming
+            # through SSE. This avoids the Cloud Run multi-instance routing
+            # problem where downloads go to a different instance.
+            logger.info(f"Clip {clip_num}: Reading rendered file ({file_size_mb:.1f} MB) for base64 encoding...")
+            with open(output_filepath, "rb") as vf:
+                video_bytes = vf.read()
+            video_b64 = base64.b64encode(video_bytes).decode("ascii")
+            logger.info(f"Clip {clip_num}: Base64 encoded ({len(video_b64)} chars)")
+            
             clip_result = {
                 "index": clip_idx,
                 "title": highlight.title,
-                "output_path": str(output_filepath),
                 "filename": output_filename,
                 "duration": round(clip_duration, 1),
                 "score": highlight.score,
                 "reason": highlight.reason,
+                "video_data": video_b64,
             }
             job.clips.append(clip_result)
 
-            file_size_mb = output_filepath.stat().st_size / (1024 * 1024)
             job.add_progress(
                 "rendering",
                 f"Clip {clip_num}: ✓ Render complete! "
