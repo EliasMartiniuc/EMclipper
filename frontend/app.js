@@ -336,8 +336,23 @@ function displaySingleClip(clip, jobId) {
                 </svg>
                 Download HD
             </a>
+            <div style="margin-top: 8px; font-size: 11px; text-align: center;">
+                <a href="${API}/api/debug/outputs/${jobId}" target="_blank" style="color: #a1a1aa; text-decoration: underline;">
+                    Debug Files (${jobId.substring(0, 8)}...)
+                </a>
+            </div>
         </div>
     `;
+
+    const videoEl = card.querySelector('video');
+    videoEl.onerror = () => {
+        console.warn(`Video failed to load from ${videoUrl}`);
+        const errorMsg = document.createElement('div');
+        errorMsg.style.cssText = 'color: #f87171; font-size: 12px; padding: 8px; text-align: center; background: rgba(248,113,113,0.1); border-radius: 4px; margin: 4px;';
+        errorMsg.innerHTML = `⚠️ Preview load failed. <a href="${downloadUrl}" target="_blank" style="color: #38bdf8; text-decoration: underline;">Try direct link</a> or <a href="${API}/api/debug/outputs/${jobId}" target="_blank" style="color: #38bdf8; text-decoration: underline;">Check Server Files</a>`;
+        card.insertBefore(errorMsg, card.querySelector('.clip-info'));
+    };
+
     clipsGrid.appendChild(card);
 }
 

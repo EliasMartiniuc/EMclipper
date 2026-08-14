@@ -544,14 +544,58 @@ async def process_stream(
     return EventSourceResponse(event_generator())
 
 
+@app.get("/api/debug/info")
+async def debug_info():
+    """Global debug endpoint: provides container diagnostics, active jobs, and files."""
+    import socket
+    import shutil
+    
+    outputs = [d.name for d in OUTPUTS_DIR.iterdir() if d.is_dir()] if OUTPUTS_DIR.exists() else []
+    temp_dirs = [d.name for d in TEMP_DIR.iterdir() if d.is_dir()] if TEMP_DIR.exists() else []
+    downloads = [f.name for f in DOWNLOADS_DIR.iterdir()] if DOWNLOADS_DIR.exists() else []
+    
+    disk = shutil.disk_usage(str(BASE_DIR))
+    
+    return {
+        "hostname": socket.gethostname(),
+        "time": datetime.now().isoformat(),
+        "outputs_jobs": outputs,
+        "temp_dirs": temp_dirs,
+        "downloads_files": downloads,
+        "disk_free_mb": round(disk.free / (1024 * 1024), 1),
+        "disk_total_mb": round(disk.total / (1024 * 1024), 1),
+    }
+
 @app.get("/api/debug/outputs/{job_id}")
 async def debug_outputs(job_id: str):
-    """Debug endpoint: list files in the outputs directory for a job."""
+    """Debug endpoint: list files in the outputs directory for a specific job."""
+    import socket
     job_dir = OUTPUTS_DIR / job_id
+    all_jobs = [d.name for d in OUTPUTS_DIR.iterdir() if d.is_dir()] if OUTPUTS_DIR.exists() else []
+    
     if not job_dir.exists():
-        return {"error": "Job dir not found", "outputs_dir": str(OUTPUTS_DIR), "job_id": job_id}
-    files = [f.name for f in job_dir.iterdir()]
-    return {"job_id": job_id, "files": files, "outputs_dir": str(job_dir)}
+        return {
+            "error": "Job outputs directory not found on this container instance",
+            "hostname": socket.gethostname(),
+            "requested_job_id": job_id,
+            "available_job_dirs_on_this_instance": all_jobs,
+            "outputs_root": str(OUTPUTS_DIR),
+        }
+    
+    files_info = []
+    for f in job_dir.iterdir():
+        files_info.append({
+            "name": f.name,
+            "size_bytes": f.stat().st_size,
+            "size_mb": round(f.stat().st_size / (1024 * 1024), 2),
+        })
+        
+    return {
+        "hostname": socket.gethostname(),
+        "job_id": job_id,
+        "files": files_info,
+        "job_dir": str(job_dir),
+    }
 
 @app.get("/api/download/{job_id}/{filename}")
 async def download_clip(job_id: str, filename: str):
