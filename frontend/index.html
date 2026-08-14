@@ -21,7 +21,7 @@
         <!-- Input Section -->
         <div class="input-card">
             <div class="input-group" style="flex-direction: column; align-items: stretch; padding: 15px; margin-bottom: 10px;">
-                <label style="color: #a1a1aa; font-size: 14px; margin-bottom: 8px;">1. Upload a Video File (Max 32MB on Cloud Run)</label>
+                <label style="color: #a1a1aa; font-size: 14px; margin-bottom: 8px;">1. Upload a Video File (Unlimited Size)</label>
                 <input type="file" id="videoFile" accept="video/*" style="color: #fff; font-size: 14px; padding: 8px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; background: rgba(0,0,0,0.2);" />
             </div>
 
@@ -53,6 +53,17 @@
                 </svg>
                 Stop
             </button>
+        </div>
+
+        <!-- Upload Progress Bar (hidden by default) -->
+        <div id="uploadProgressContainer" style="display: none; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <span id="uploadProgressText" style="color: var(--accent); font-size: 14px;">Uploading... 0%</span>
+                <span id="uploadSpeedText" style="color: #a1a1aa; font-size: 12px;"></span>
+            </div>
+            <div style="background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden;">
+                <div id="uploadProgressBar" style="background: var(--accent); height: 100%; width: 0%; transition: width 0.2s ease;"></div>
+            </div>
         </div>
 
         <!-- Error Banner -->

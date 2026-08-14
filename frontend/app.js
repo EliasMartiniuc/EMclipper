@@ -23,6 +23,10 @@ const mouseGlow = document.getElementById('mouseGlow');
 // Video Upload Elements
 const videoFile = document.getElementById('videoFile');
 const videoUploadStatus = document.getElementById('videoUploadStatus');
+const uploadProgressContainer = document.getElementById('uploadProgressContainer');
+const uploadProgressText = document.getElementById('uploadProgressText');
+const uploadProgressBar = document.getElementById('uploadProgressBar');
+const uploadSpeedText = document.getElementById('uploadSpeedText');
 
 // Event Listeners
 document.addEventListener('mousemove', (e) => {
@@ -42,14 +46,8 @@ if (videoFile) {
         if (videoFile.files.length > 0) {
             const file = videoFile.files[0];
             const sizeMB = file.size / (1024 * 1024);
-            if (sizeMB > 32) {
-                showError(`File is too large (${sizeMB.toFixed(1)}MB). Max size is 32MB.`);
-                videoFile.value = '';
-                videoUploadStatus.textContent = '';
-            } else {
-                hideError();
-                videoUploadStatus.textContent = `✅ ${file.name} (${sizeMB.toFixed(1)}MB) ready for upload.`;
-            }
+            hideError();
+            videoUploadStatus.textContent = `✅ ${file.name} (${sizeMB.toFixed(1)}MB) ready for upload.`;
         } else {
             videoUploadStatus.textContent = '';
         }
@@ -70,6 +68,9 @@ async function startProcessing() {
     logConsole.innerHTML = '';
     clipsGrid.innerHTML = '';
     clipsSection.classList.remove('visible');
+    uploadProgressContainer.style.display = 'none';
+    uploadProgressBar.style.width = '0%';
+    uploadSpeedText.textContent = '';
     
     // Update Buttons
     processBtn.disabled = true;
@@ -90,17 +91,66 @@ async function startProcessing() {
     }
     abortController = new AbortController();
 
-    const formData = new FormData();
-    if (url) {
-        formData.append('url', url);
-    }
-    formData.append('subtitles_enabled', subtitles_enabled);
-    
-    if (hasVideo) {
-        formData.append('video_file', videoFile.files[0]);
-    }
-
     try {
+        let jobId = "";
+        let filename = "";
+
+        if (hasVideo) {
+            const file = videoFile.files[0];
+            filename = file.name;
+            jobId = crypto.randomUUID(); // Generate a unique Job ID for the chunks
+            
+            // Chunk settings
+            const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+            const totalChunks = Math.ceil(file.size / chunkSize);
+            
+            uploadProgressContainer.style.display = 'block';
+            
+            const startTime = Date.now();
+            
+            for (let i = 0; i < totalChunks; i++) {
+                if (abortController.signal.aborted) throw new Error("AbortError");
+                
+                const start = i * chunkSize;
+                const end = Math.min(start + chunkSize, file.size);
+                const chunk = file.slice(start, end);
+                
+                const chunkData = new FormData();
+                chunkData.append('job_id', jobId);
+                chunkData.append('chunk_index', i);
+                chunkData.append('total_chunks', totalChunks);
+                chunkData.append('filename', filename);
+                chunkData.append('chunk', chunk);
+                
+                const uploadRes = await fetch(`${API}/api/upload_chunk`, {
+                    method: 'POST',
+                    body: chunkData,
+                    signal: abortController.signal
+                });
+                
+                if (!uploadRes.ok) {
+                    throw new Error(`Chunk upload failed: ${await uploadRes.text()}`);
+                }
+                
+                // Update Progress UI
+                const progress = Math.round(((i + 1) / totalChunks) * 100);
+                uploadProgressBar.style.width = `${progress}%`;
+                uploadProgressText.textContent = `Uploading... ${progress}%`;
+                
+                const elapsedSeconds = (Date.now() - startTime) / 1000;
+                const speedMBps = ((end / (1024 * 1024)) / elapsedSeconds).toFixed(1);
+                uploadSpeedText.textContent = `${speedMBps} MB/s`;
+            }
+            
+            uploadProgressText.textContent = `Upload Complete! Processing...`;
+        }
+
+        const formData = new FormData();
+        if (url) formData.append('url', url);
+        formData.append('subtitles_enabled', subtitles_enabled);
+        if (jobId) formData.append('job_id', jobId);
+        if (filename) formData.append('filename', filename);
+
         const response = await fetch(`${API}/api/process_stream`, {
             method: 'POST',
             body: formData,

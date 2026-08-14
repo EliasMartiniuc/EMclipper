@@ -398,46 +398,76 @@ app.add_middleware(
 
 # ─── API Endpoints ─────────────────────────────────────────────────────────────
 
+@app.post("/api/upload_chunk")
+async def upload_chunk(
+    job_id: str = Form(...),
+    chunk_index: int = Form(...),
+    total_chunks: int = Form(...),
+    filename: str = Form(...),
+    chunk: UploadFile = File(...)
+):
+    """
+    Receive a chunk of a video file and append it to the temporary file on disk.
+    Allows bypassing Cloud Run's 32MB request body limit.
+    """
+    # Sanitize filename
+    safe_filename = "".join(c for c in filename if c.isalnum() or c in (".", "-", "_")).strip()
+    if not safe_filename:
+        safe_filename = "uploaded_video.mp4"
+        
+    job_temp_dir = TEMP_DIR / job_id
+    job_temp_dir.mkdir(parents=True, exist_ok=True)
+    
+    video_path = job_temp_dir / safe_filename
+    
+    # Append the chunk to the file
+    with video_path.open("ab") as buffer:
+        content = await chunk.read()
+        buffer.write(content)
+        
+    logger.info(f"[{job_id}] Received chunk {chunk_index + 1}/{total_chunks} for {safe_filename} ({len(content)} bytes)")
+    
+    return {"status": "success", "chunk_index": chunk_index}
+
 
 @app.post("/api/process_stream")
 async def process_stream(
     url: str = Form(""), 
     subtitles_enabled: bool = Form(True),
-    video_file: UploadFile = File(None)
+    job_id: str = Form(""),
+    filename: str = Form("")
 ):
     """
     Stream real-time progress updates via Server-Sent Events (SSE).
     This handles the processing request completely statelessly via POST.
     """
     url = url.strip()
-    if not url and not video_file:
-        raise HTTPException(status_code=400, detail="Must provide either a URL or a video file")
+    job_id = job_id.strip()
+    
+    if not url and not job_id:
+        raise HTTPException(status_code=400, detail="Must provide either a URL or a chunked upload job_id")
 
-    job_id = str(uuid.uuid4())
+    if not job_id:
+        job_id = str(uuid.uuid4())
+        
     job = Job(job_id, url if url else None, subtitles_enabled)
     
-    if video_file and video_file.filename:
-        # Create temp dir for this job and save the uploaded video
-        job_temp_dir = TEMP_DIR / job_id
-        job_temp_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Sanitize filename
-        safe_filename = "".join(c for c in video_file.filename if c.isalnum() or c in (".", "-", "_")).strip()
+    if not url and job_id and filename:
+        # Check if the chunked file exists
+        safe_filename = "".join(c for c in filename if c.isalnum() or c in (".", "-", "_")).strip()
         if not safe_filename:
             safe_filename = "uploaded_video.mp4"
             
-        video_path = job_temp_dir / safe_filename
+        video_path = TEMP_DIR / job_id / safe_filename
         
-        # Stream the file to disk to avoid loading massive files into RAM
-        import shutil
-        with video_path.open("wb") as buffer:
-            shutil.copyfileobj(video_file.file, buffer)
-            
-        job.uploaded_video_path = video_path
-        job.video_title = video_file.filename
-        logger.info(f"[{job_id}] Saved uploaded video file ({video_path.stat().st_size} bytes) to {video_path}")
-    else:
-        logger.info(f"[{job_id}] No video file uploaded, falling back to YouTube URL: {url}")
+        if video_path.exists():
+            job.uploaded_video_path = video_path
+            job.video_title = filename
+            logger.info(f"[{job_id}] Found stitched video file ({video_path.stat().st_size} bytes) at {video_path}")
+        else:
+            raise HTTPException(status_code=400, detail="Uploaded file not found on server")
+    elif url:
+        logger.info(f"[{job_id}] Processing YouTube URL: {url}")
 
     queue = asyncio.Queue()
     loop = asyncio.get_running_loop()
