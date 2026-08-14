@@ -314,19 +314,21 @@ function appendLog(msg) {
 
 function displaySingleClip(clip, jobId) {
     clipsSection.classList.add('visible');
+    // Use the /outputs static mount - handles range requests for video streaming
+    const videoUrl = `${API}/outputs/${jobId}/${encodeURIComponent(clip.filename)}`;
     const downloadUrl = `${API}/api/download/${jobId}/${encodeURIComponent(clip.filename)}`;
 
     const card = document.createElement('div');
     card.className = 'clip-card';
     card.innerHTML = `
-        <video controls preload="metadata" src="${downloadUrl}"></video>
+        <video controls preload="metadata" src="${videoUrl}"></video>
         <div class="clip-info">
             <div class="clip-title" title="${escapeHtml(clip.title)}">${escapeHtml(clip.title)}</div>
             <div class="clip-meta">
                 <div class="meta-badge">⏱ ${clip.duration}s</div>
                 <div class="meta-badge score">⭐ ${clip.score}/10</div>
             </div>
-            <a class="btn-download" href="${downloadUrl}" download="${clip.filename}">
+            <a class="btn-download" href="${downloadUrl}" download="${escapeHtml(clip.filename)}">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="7 10 12 15 17 10"></polyline>
@@ -356,12 +358,6 @@ function displayClips(clips, jobId) {
 function showError(msg) {
     errorBanner.innerHTML = `<strong>Error:</strong> ${escapeHtml(msg)}`;
     errorBanner.classList.add('visible');
-
-    // Highlight cookies section if age-restricted
-    if (msg.toLowerCase().includes('age-restricted')) {
-        cookiesUploadStatus.textContent = '⚠️ This video is age-restricted. Please upload your cookies.txt above and click Generate again.';
-        cookiesUploadStatus.style.color = '#f59e0b';
-    }
 }
 
 function hideError() {

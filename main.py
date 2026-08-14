@@ -282,12 +282,11 @@ def process_video_stateless(job: Job):
             output_dir = OUTPUTS_DIR / job_id
             output_dir.mkdir(parents=True, exist_ok=True)
 
-            # Create a safe filename from the title
+            # Create a safe filename from the title (no spaces - use underscores for URL safety)
             safe_title = "".join(
-                c
+                c if c.isalnum() or c in ("-", "_") else "_"
                 for c in highlight.title
-                if c.isalnum() or c in (" ", "-", "_")
-            ).strip()
+            ).strip("_")
             safe_title = safe_title[:50] if safe_title else f"clip_{clip_num}"
             output_filename = f"{clip_num}_{safe_title}.mp4"
             output_filepath = output_dir / output_filename
@@ -544,12 +543,16 @@ async def process_stream(
 
     return EventSourceResponse(event_generator())
 
-# Note: /api/download remains, but requires the file to still exist on disk.
-# On Cloud Run, the file exists only on the instance that processed it.
-# To download clips properly in a stateless way without Cloud Storage,
-# the frontend must intercept the files directly, OR we serve them immediately.
-# But for now, we'll leave this endpoint for local testing, though Cloud Run 
-# users might want to upload clips directly to Cloud Storage (S3).
+
+@app.get("/api/debug/outputs/{job_id}")
+async def debug_outputs(job_id: str):
+    """Debug endpoint: list files in the outputs directory for a job."""
+    job_dir = OUTPUTS_DIR / job_id
+    if not job_dir.exists():
+        return {"error": "Job dir not found", "outputs_dir": str(OUTPUTS_DIR), "job_id": job_id}
+    files = [f.name for f in job_dir.iterdir()]
+    return {"job_id": job_id, "files": files, "outputs_dir": str(job_dir)}
+
 @app.get("/api/download/{job_id}/{filename}")
 async def download_clip(job_id: str, filename: str):
     """Serve a rendered clip file for download from the stateless temp directory."""
@@ -606,6 +609,14 @@ if frontend_dir.exists():
         "/static",
         StaticFiles(directory=str(frontend_dir)),
         name="static",
+    )
+
+# Mount outputs directory for direct video streaming/preview
+if OUTPUTS_DIR.exists():
+    app.mount(
+        "/outputs",
+        StaticFiles(directory=str(OUTPUTS_DIR)),
+        name="outputs",
     )
 
 
