@@ -238,6 +238,9 @@ def process_video_stateless(job: Job):
         # STAGE 4: PROCESS EACH CLIP
         # ════════════════════════════════════════════════════════════════
         # ════════════════════════════════════════════════════════════════
+        # Sort highlights from best to worst score
+        highlights.sort(key=lambda h: getattr(h, "score", 0), reverse=True)
+        
         for clip_idx, highlight in enumerate(highlights):
             check_cancelled()
             clip_num = clip_idx + 1

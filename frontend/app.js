@@ -6,7 +6,6 @@ let currentJobId = null;
 let abortController = null;
 
 // DOM Elements
-const urlInput = document.getElementById('urlInput');
 const processBtn = document.getElementById('processBtn');
 const stopBtn = document.getElementById('stopBtn');
 const statusBar = document.getElementById('statusBar');
@@ -34,9 +33,6 @@ document.addEventListener('mousemove', (e) => {
     mouseGlow.style.top = `${e.clientY}px`;
 });
 
-urlInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') startProcessing();
-});
 processBtn.addEventListener('click', startProcessing);
 stopBtn.addEventListener('click', stopProcessing);
 
@@ -55,11 +51,10 @@ if (videoFile) {
 }
 
 async function startProcessing() {
-    const url = urlInput.value.trim();
     const hasVideo = videoFile && videoFile.files.length > 0;
     
-    if (!url && !hasVideo) {
-        showError('Please upload a video file OR enter a YouTube URL.');
+    if (!hasVideo) {
+        showError('Please upload a video file.');
         return;
     }
 
@@ -146,7 +141,6 @@ async function startProcessing() {
         }
 
         const formData = new FormData();
-        if (url) formData.append('url', url);
         formData.append('subtitles_enabled', subtitles_enabled);
         if (jobId) formData.append('job_id', jobId);
         if (filename) formData.append('filename', filename);
