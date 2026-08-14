@@ -561,8 +561,20 @@ async def download_clip(job_id: str, filename: str):
     safe_filename = filename.replace("/", "").replace("\\", "")
     clip_path = job_dir / safe_filename
     
+    # Backward compatibility: if the old cached frontend sends an index like "0"
+    if not clip_path.exists() and safe_filename.isdigit():
+        clip_index = int(safe_filename)
+        clip_num = clip_index + 1
+        
+        # Search the directory for a file starting with "{clip_num}_"
+        for file in job_dir.iterdir():
+            if file.name.startswith(f"{clip_num}_") and file.name.endswith(".mp4"):
+                clip_path = file
+                safe_filename = file.name
+                break
+                
     if not clip_path.exists():
-        raise HTTPException(status_code=404, detail="Clip file not found.")
+        raise HTTPException(status_code=404, detail=f"Clip file not found: {safe_filename}")
 
     return FileResponse(
         path=str(clip_path),
