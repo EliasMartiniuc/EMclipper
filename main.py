@@ -417,27 +417,55 @@ async def upload_chunk(
     chunk: UploadFile = File(...)
 ):
     """
-    Receive a chunk of a video file and append it to the temporary file on disk.
-    Allows bypassing Cloud Run's 32MB request body limit.
+    Receive a single chunk and save it as its own file.
+    Chunks are saved as chunk_0, chunk_1, etc. and stitched together later.
+    This allows parallel uploads without file corruption.
     """
+    job_temp_dir = TEMP_DIR / job_id
+    job_temp_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Save each chunk as a separate file
+    chunk_path = job_temp_dir / f"chunk_{chunk_index}"
+    content = await chunk.read()
+    chunk_path.write_bytes(content)
+        
+    logger.info(f"[{job_id}] Received chunk {chunk_index + 1}/{total_chunks} ({len(content)} bytes)")
+    
+    return {"status": "success", "chunk_index": chunk_index}
+
+
+@app.post("/api/finalize_upload")
+async def finalize_upload(
+    job_id: str = Form(...),
+    total_chunks: int = Form(...),
+    filename: str = Form(...)
+):
+    """
+    Stitch all uploaded chunks into a single video file, in order.
+    Called after all parallel chunk uploads complete.
+    """
+    job_temp_dir = TEMP_DIR / job_id
+    
     # Sanitize filename
     safe_filename = "".join(c for c in filename if c.isalnum() or c in (".", "-", "_")).strip()
     if not safe_filename:
         safe_filename = "uploaded_video.mp4"
-        
-    job_temp_dir = TEMP_DIR / job_id
-    job_temp_dir.mkdir(parents=True, exist_ok=True)
     
     video_path = job_temp_dir / safe_filename
     
-    # Append the chunk to the file
-    with video_path.open("ab") as buffer:
-        content = await chunk.read()
-        buffer.write(content)
-        
-    logger.info(f"[{job_id}] Received chunk {chunk_index + 1}/{total_chunks} for {safe_filename} ({len(content)} bytes)")
+    # Stitch chunks in order
+    with video_path.open("wb") as outfile:
+        for i in range(total_chunks):
+            chunk_path = job_temp_dir / f"chunk_{i}"
+            if not chunk_path.exists():
+                raise HTTPException(status_code=400, detail=f"Missing chunk {i}")
+            outfile.write(chunk_path.read_bytes())
+            chunk_path.unlink()  # Clean up chunk file
     
-    return {"status": "success", "chunk_index": chunk_index}
+    file_size_mb = video_path.stat().st_size / (1024 * 1024)
+    logger.info(f"[{job_id}] Stitched {total_chunks} chunks into {safe_filename} ({file_size_mb:.1f} MB)")
+    
+    return {"status": "success", "filename": safe_filename, "size_mb": round(file_size_mb, 1)}
 
 
 @app.post("/api/process_stream")
