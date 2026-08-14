@@ -45,16 +45,16 @@ DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
 
 # ─── Subtitle Styling ─────────────────────────────────────────────────────────
 # ASS color format: &HAABBGGRR (hex, BGR order, not RGB)
-SUBTITLE_FONT = os.getenv("SUBTITLE_FONT", "Arial Black")
-SUBTITLE_FONTSIZE = int(os.getenv("SUBTITLE_FONTSIZE", "110"))
+SUBTITLE_FONT = os.getenv("SUBTITLE_FONT", "Liberation Sans")
+SUBTITLE_FONTSIZE = int(os.getenv("SUBTITLE_FONTSIZE", "58"))
 SUBTITLE_PRIMARY_COLOR = os.getenv("SUBTITLE_PRIMARY_COLOR", "&H0000FFFF")      # Yellow (highlighted word)
 SUBTITLE_SECONDARY_COLOR = os.getenv("SUBTITLE_SECONDARY_COLOR", "&H00FFFFFF")  # White (pre-highlight)
 SUBTITLE_OUTLINE_COLOR = os.getenv("SUBTITLE_OUTLINE_COLOR", "&H00000000")      # Black outline
 SUBTITLE_BACK_COLOR = os.getenv("SUBTITLE_BACK_COLOR", "&H80000000")            # Semi-transparent shadow
-SUBTITLE_OUTLINE = int(os.getenv("SUBTITLE_OUTLINE", "8"))
-SUBTITLE_SHADOW = int(os.getenv("SUBTITLE_SHADOW", "4"))
-SUBTITLE_MARGIN_V = int(os.getenv("SUBTITLE_MARGIN_V", "700"))                  # Push to the center of the screen
-SUBTITLE_WORDS_PER_LINE = int(os.getenv("SUBTITLE_WORDS_PER_LINE", "2"))
+SUBTITLE_OUTLINE = int(os.getenv("SUBTITLE_OUTLINE", "4"))
+SUBTITLE_SHADOW = int(os.getenv("SUBTITLE_SHADOW", "2"))
+SUBTITLE_MARGIN_V = int(os.getenv("SUBTITLE_MARGIN_V", "550"))                  # Bottom margin in pixels
+SUBTITLE_WORDS_PER_LINE = int(os.getenv("SUBTITLE_WORDS_PER_LINE", "4"))
 
 # ─── Highlight Detection ──────────────────────────────────────────────────────
 HIGHLIGHT_MIN_DURATION = int(os.getenv("HIGHLIGHT_MIN_DURATION", "20"))
