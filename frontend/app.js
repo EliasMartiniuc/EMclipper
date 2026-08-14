@@ -314,7 +314,7 @@ function appendLog(msg) {
 
 function displaySingleClip(clip, jobId) {
     clipsSection.classList.add('visible');
-    const downloadUrl = `${API}/api/download/${jobId}/${clip.index}`;
+    const downloadUrl = `${API}/api/download/${jobId}/${encodeURIComponent(clip.filename)}`;
 
     const card = document.createElement('div');
     card.className = 'clip-card';

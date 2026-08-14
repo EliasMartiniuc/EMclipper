@@ -550,21 +550,23 @@ async def process_stream(
 # the frontend must intercept the files directly, OR we serve them immediately.
 # But for now, we'll leave this endpoint for local testing, though Cloud Run 
 # users might want to upload clips directly to Cloud Storage (S3).
-@app.get("/api/download/{job_id}/{clip_index}")
-async def download_clip(job_id: str, clip_index: int):
+@app.get("/api/download/{job_id}/{filename}")
+async def download_clip(job_id: str, filename: str):
     """Serve a rendered clip file for download from the stateless temp directory."""
     job_dir = OUTPUTS_DIR / job_id
     if not job_dir.exists():
         raise HTTPException(status_code=404, detail="Job outputs not found on this server instance.")
 
-    # Search for the clip file
-    clip_path = job_dir / f"clip_{clip_index}.mp4"
+    # Prevent directory traversal attacks
+    safe_filename = filename.replace("/", "").replace("\\", "")
+    clip_path = job_dir / safe_filename
+    
     if not clip_path.exists():
         raise HTTPException(status_code=404, detail="Clip file not found.")
 
     return FileResponse(
         path=str(clip_path),
-        filename=f"ai_clip_{job_id[:6]}_{clip_index}.mp4",
+        filename=safe_filename,
         media_type="video/mp4",
     )
 
