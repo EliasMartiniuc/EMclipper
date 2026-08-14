@@ -98,20 +98,17 @@ async function startProcessing() {
         if (hasVideo) {
             const file = videoFile.files[0];
             filename = file.name;
-            jobId = crypto.randomUUID();
+            jobId = crypto.randomUUID(); // Generate a unique Job ID for the chunks
             
-            // Chunk settings — 25MB chunks, 3 in parallel
-            const chunkSize = 25 * 1024 * 1024;
+            // Chunk settings
+            const chunkSize = 5 * 1024 * 1024; // 5MB chunks
             const totalChunks = Math.ceil(file.size / chunkSize);
-            const concurrency = 3;
             
             uploadProgressContainer.style.display = 'block';
             
             const startTime = Date.now();
-            let completedChunks = 0;
-
-            // Upload a single chunk
-            async function uploadOneChunk(i) {
+            
+            for (let i = 0; i < totalChunks; i++) {
                 if (abortController.signal.aborted) throw new Error("AbortError");
                 
                 const start = i * chunkSize;
@@ -132,44 +129,17 @@ async function startProcessing() {
                 });
                 
                 if (!uploadRes.ok) {
-                    throw new Error(`Chunk ${i} upload failed: ${await uploadRes.text()}`);
+                    throw new Error(`Chunk upload failed: ${await uploadRes.text()}`);
                 }
                 
-                completedChunks++;
-                const progress = Math.round((completedChunks / totalChunks) * 100);
+                // Update Progress UI
+                const progress = Math.round(((i + 1) / totalChunks) * 100);
                 uploadProgressBar.style.width = `${progress}%`;
                 uploadProgressText.textContent = `Uploading... ${progress}%`;
                 
                 const elapsedSeconds = (Date.now() - startTime) / 1000;
-                const uploadedMB = (completedChunks * chunkSize) / (1024 * 1024);
-                const speedMBps = (uploadedMB / elapsedSeconds).toFixed(1);
+                const speedMBps = ((end / (1024 * 1024)) / elapsedSeconds).toFixed(1);
                 uploadSpeedText.textContent = `${speedMBps} MB/s`;
-            }
-
-            // Upload chunks in parallel batches
-            for (let batch = 0; batch < totalChunks; batch += concurrency) {
-                const batchPromises = [];
-                for (let j = 0; j < concurrency && batch + j < totalChunks; j++) {
-                    batchPromises.push(uploadOneChunk(batch + j));
-                }
-                await Promise.all(batchPromises);
-            }
-            
-            // Finalize: stitch all chunks into one file on the server
-            uploadProgressText.textContent = `Finalizing upload...`;
-            const finalizeData = new FormData();
-            finalizeData.append('job_id', jobId);
-            finalizeData.append('total_chunks', totalChunks);
-            finalizeData.append('filename', filename);
-            
-            const finalizeRes = await fetch(`${API}/api/finalize_upload`, {
-                method: 'POST',
-                body: finalizeData,
-                signal: abortController.signal
-            });
-            
-            if (!finalizeRes.ok) {
-                throw new Error(`Finalize failed: ${await finalizeRes.text()}`);
             }
             
             uploadProgressText.textContent = `Upload Complete! Processing...`;
