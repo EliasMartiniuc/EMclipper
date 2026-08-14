@@ -228,7 +228,8 @@ def _build_karaoke_dialogue_line(
     karaoke_parts = []
 
     for word in word_group:
-        clean_word = word.word.strip()
+        # TikTok/Opus viral clips generally use all uppercase for captions
+        clean_word = word.word.strip().upper()
         if not clean_word:
             continue
 
