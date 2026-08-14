@@ -228,7 +228,7 @@ def _build_karaoke_dialogue_line(
     karaoke_parts = []
 
     for word in word_group:
-        # TikTok/Opus viral clips generally use all uppercase for captions
+        # Uppercase for viral TikTok style
         clean_word = word.word.strip().upper()
         if not clean_word:
             continue
@@ -237,9 +237,9 @@ def _build_karaoke_dialogue_line(
         word_duration_s = word.end - word.start
         word_duration_cs = max(1, round(word_duration_s * 100))
 
-        # The \\kf tag: fill-based karaoke
-        # Duration in centiseconds = how long the fill animation takes for this word
-        karaoke_parts.append(f"{{\\kf{word_duration_cs}}}{clean_word}")
+        # The \k tag: abrupt karaoke color change (instantly pops the whole word)
+        # instead of \kf which fills gradually.
+        karaoke_parts.append(f"{{\\k{word_duration_cs}}}{clean_word}")
 
     if not karaoke_parts:
         return None
