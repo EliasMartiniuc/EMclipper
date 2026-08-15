@@ -142,6 +142,7 @@ export function UploadProvider({ children }) {
       const totalChunks = Math.ceil(file.size / chunkSize);
       const startTime = Date.now();
 
+      let lastRenderTime = 0;
       for (let i = 0; i < totalChunks; i++) {
         if (signal.aborted) throw new Error("AbortError");
         
@@ -166,13 +167,17 @@ export function UploadProvider({ children }) {
           throw new Error(`Chunk upload failed: ${await uploadRes.text()}`);
         }
         
-        const currentProgress = Math.round(((i + 1) / totalChunks) * 100);
-        setProgress(currentProgress);
-        setProgressText(`Uploading... ${currentProgress}%`);
-        
-        const elapsedSeconds = (Date.now() - startTime) / 1000;
-        const speedMBps = ((end / (1024 * 1024)) / elapsedSeconds).toFixed(1);
-        setSpeedText(`${speedMBps} MB/s`);
+        const now = Date.now();
+        if (now - lastRenderTime > 150 || i === totalChunks - 1) {
+          const currentProgress = Math.round(((i + 1) / totalChunks) * 100);
+          setProgress(currentProgress);
+          setProgressText(`Uploading... ${currentProgress}%`);
+          
+          const elapsedSeconds = (now - startTime) / 1000;
+          const speedMBps = ((end / (1024 * 1024)) / elapsedSeconds).toFixed(1);
+          setSpeedText(`${speedMBps} MB/s`);
+          lastRenderTime = now;
+        }
       }
 
       setSpeedText('');
@@ -230,7 +235,11 @@ export function UploadProvider({ children }) {
             try {
               const parsed = JSON.parse(dataStr);
               if (parsed.message) {
-                setLogs(prev => [...prev, { level: parsed.level || 'info', message: parsed.message }]);
+                setLogs(prev => {
+                  const newLogs = [...prev, { level: parsed.level || 'info', message: parsed.message }];
+                  if (newLogs.length > 50) return newLogs.slice(newLogs.length - 50);
+                  return newLogs;
+                });
                 setProgressText(parsed.message);
               }
               if (parsed.clip) {
