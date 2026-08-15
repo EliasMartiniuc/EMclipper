@@ -7,9 +7,17 @@ export default function ProjectDetail() {
   const [project, setProject] = useState(null);
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('projects') || '[]');
-    const found = saved.find(p => p.id === videoId);
-    setProject(found);
+    const loadProject = () => {
+      const saved = JSON.parse(localStorage.getItem('projects') || '[]');
+      const found = saved.find(p => p.id === videoId);
+      setProject(found);
+    };
+
+    loadProject();
+    
+    // Listen for real-time updates from UploadContext
+    window.addEventListener('local-storage-update', loadProject);
+    return () => window.removeEventListener('local-storage-update', loadProject);
   }, [videoId]);
 
   if (!project) {

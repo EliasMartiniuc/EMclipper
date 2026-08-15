@@ -5,10 +5,16 @@ import { useUpload } from '../UploadContext';
 export default function Home() {
   const {
     file, handleFileChange, isProcessing, progress, progressText, 
-    speedText, logs, error, startProcessing, stopProcessing
+    speedText, logs, error, startProcessing, stopProcessing, activeJobId
   } = useUpload();
   
   const logEndRef = useRef(null);
+
+  useEffect(() => {
+    if (logEndRef.current && logEndRef.current.parentElement) {
+      logEndRef.current.parentElement.scrollTop = logEndRef.current.parentElement.scrollHeight;
+    }
+  }, [logs]);
 
   return (
     <div>
@@ -105,6 +111,16 @@ export default function Home() {
               <button className="neu-btn" onClick={stopProcessing} style={{ width: '100%' }}>
                 <XCircle size={18} /> Stop Processing
               </button>
+
+              {activeJobId && (
+                <div style={{ marginTop: '16px' }}>
+                  <a href={`/projects/${activeJobId}`} style={{ textDecoration: 'none' }}>
+                    <button className="neu-btn-primary" style={{ width: '100%', animation: 'pulse 2s infinite' }}>
+                      <PlayCircle size={18} /> See Clips
+                    </button>
+                  </a>
+                </div>
+              )}
             </div>
           )}
         </div>

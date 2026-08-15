@@ -12,6 +12,7 @@ export function UploadProvider({ children }) {
   const [speedText, setSpeedText] = useState('');
   const [logs, setLogs] = useState([]);
   const [error, setError] = useState('');
+  const [activeJobId, setActiveJobId] = useState(null);
   const abortControllerRef = useRef(null);
   
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ export function UploadProvider({ children }) {
       abortControllerRef.current.abort();
     }
     setIsProcessing(false);
+    setActiveJobId(null);
     setProgressText('Processing stopped.');
     setLogs(prev => [...prev, { level: 'error', message: 'User stopped processing.' }]);
   };
@@ -50,6 +52,7 @@ export function UploadProvider({ children }) {
 
     try {
       const jobId = crypto.randomUUID();
+      setActiveJobId(jobId);
       const filename = file.name;
       
       const chunkSize = 5 * 1024 * 1024;
@@ -113,7 +116,10 @@ export function UploadProvider({ children }) {
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          setIsProcessing(false);
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
         
@@ -143,6 +149,26 @@ export function UploadProvider({ children }) {
               if (parsed.message) {
                 setLogs(prev => [...prev, { level: parsed.level || 'info', message: parsed.message }]);
                 setProgressText(parsed.message);
+              }
+              if (parsed.clip) {
+                // Save it to localStorage instantly!
+                const saved = JSON.parse(localStorage.getItem('projects') || '[]');
+                let projIndex = saved.findIndex(p => p.id === jobId);
+                if (projIndex === -1) {
+                  // create skeleton
+                  saved.unshift({ 
+                    id: jobId, 
+                    title: filename, 
+                    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), 
+                    clips: [parsed.clip] 
+                  });
+                } else {
+                  saved[projIndex].clips.push(parsed.clip);
+                }
+                localStorage.setItem('projects', JSON.stringify(saved));
+                
+                // Fire a custom event so ProjectDetail can re-render!
+                window.dispatchEvent(new Event('local-storage-update'));
               }
               if (eventType === 'done' || eventType === 'error') {
                 setIsProcessing(false);
@@ -185,7 +211,7 @@ export function UploadProvider({ children }) {
 
   return (
     <UploadContext.Provider value={{
-      file, handleFileChange, isProcessing, progress, progressText, speedText, logs, error, startProcessing, stopProcessing
+      file, handleFileChange, isProcessing, progress, progressText, speedText, logs, error, startProcessing, stopProcessing, activeJobId
     }}>
       {children}
     </UploadContext.Provider>
