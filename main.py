@@ -649,12 +649,12 @@ async def download_clip(job_id: str, filename: str):
 frontend_dir = BASE_DIR / "frontend" / "dist"
 
 # Mount outputs directory for direct video streaming/preview
-if OUTPUTS_DIR.exists():
-    app.mount(
-        "/outputs",
-        StaticFiles(directory=str(OUTPUTS_DIR)),
-        name="outputs",
-    )
+OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/outputs",
+    StaticFiles(directory=str(OUTPUTS_DIR)),
+    name="outputs",
+)
 
 # Mount Vite assets directory
 assets_dir = frontend_dir / "assets"

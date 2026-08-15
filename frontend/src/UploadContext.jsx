@@ -151,6 +151,9 @@ export function UploadProvider({ children }) {
                 setProgressText(parsed.message);
               }
               if (parsed.clip) {
+                // Strip video_data (base64) — it's way too big for localStorage!
+                const { video_data, ...clipMeta } = parsed.clip;
+                
                 // Save it to localStorage instantly!
                 const saved = JSON.parse(localStorage.getItem('projects') || '[]');
                 let projIndex = saved.findIndex(p => p.id === jobId);
@@ -160,10 +163,10 @@ export function UploadProvider({ children }) {
                     id: jobId, 
                     title: filename, 
                     date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), 
-                    clips: [parsed.clip] 
+                    clips: [clipMeta] 
                   });
                 } else {
-                  saved[projIndex].clips.push(parsed.clip);
+                  saved[projIndex].clips.push(clipMeta);
                 }
                 localStorage.setItem('projects', JSON.stringify(saved));
                 
@@ -173,18 +176,34 @@ export function UploadProvider({ children }) {
               if (eventType === 'done' || eventType === 'error') {
                 setIsProcessing(false);
                 if (eventType === 'done') {
-                  setLogs(prev => [...prev, { level: 'success', message: 'Processing finished successfully!' }]);
-                  setProgressText('Processing finished successfully!');
+                  setLogs(prev => [...prev, { level: 'success', message: '✓ Processing finished successfully!' }]);
+                  setProgressText('✓ Processing finished successfully!');
                   
-                  // Save project data to localStorage
+                  // Update project title from final done event, but DON'T overwrite clips
+                  // (they were already saved one-by-one above)
                   const existingProjects = JSON.parse(localStorage.getItem('projects') || '[]');
-                  const newProject = {
-                    id: jobId,
-                    title: parsed.video_title || filename,
-                    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-                    clips: parsed.clips || []
-                  };
-                  localStorage.setItem('projects', JSON.stringify([newProject, ...existingProjects]));
+                  const projIdx = existingProjects.findIndex(p => p.id === jobId);
+                  if (projIdx !== -1) {
+                    // Update the title from the backend
+                    existingProjects[projIdx].title = parsed.video_title || existingProjects[projIdx].title;
+                    localStorage.setItem('projects', JSON.stringify(existingProjects));
+                  } else {
+                    // Fallback: save from done payload (strip video_data from each clip)
+                    const cleanClips = (parsed.clips || []).map(c => {
+                      const { video_data, ...meta } = c;
+                      return meta;
+                    });
+                    const newProject = {
+                      id: jobId,
+                      title: parsed.video_title || filename,
+                      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                      clips: cleanClips
+                    };
+                    existingProjects.unshift(newProject);
+                    localStorage.setItem('projects', JSON.stringify(existingProjects));
+                  }
+                  
+                  window.dispatchEvent(new Event('local-storage-update'));
 
                   setTimeout(() => {
                      navigate(`/projects/${jobId}`);
@@ -192,7 +211,8 @@ export function UploadProvider({ children }) {
                 }
               }
             } catch(e) {
-              // Not JSON
+              // Not JSON or localStorage quota exceeded — ignore safely
+              console.warn('SSE parse error:', e);
             }
           }
           
