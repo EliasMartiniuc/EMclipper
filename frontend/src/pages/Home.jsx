@@ -10,12 +10,6 @@ export default function Home() {
   
   const logEndRef = useRef(null);
 
-  useEffect(() => {
-    if (logEndRef.current) {
-      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [logs]);
-
   return (
     <div>
       <div style={{ textAlign: 'center', marginBottom: '60px' }}>

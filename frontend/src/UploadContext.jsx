@@ -89,6 +89,7 @@ export function UploadProvider({ children }) {
         setSpeedText(`${speedMBps} MB/s`);
       }
 
+      setSpeedText('');
       setProgressText('Upload Complete! Starting AI Processing...');
 
       const formData = new FormData();
@@ -146,9 +147,22 @@ export function UploadProvider({ children }) {
               if (eventType === 'done' || eventType === 'error') {
                 setIsProcessing(false);
                 if (eventType === 'done') {
+                  setLogs(prev => [...prev, { level: 'success', message: 'Processing finished successfully!' }]);
+                  setProgressText('Processing finished successfully!');
+                  
+                  // Save project data to localStorage
+                  const existingProjects = JSON.parse(localStorage.getItem('projects') || '[]');
+                  const newProject = {
+                    id: jobId,
+                    title: parsed.video_title || filename,
+                    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                    clips: parsed.clips || []
+                  };
+                  localStorage.setItem('projects', JSON.stringify([newProject, ...existingProjects]));
+
                   setTimeout(() => {
                      navigate(`/projects/${jobId}`);
-                  }, 1000);
+                  }, 1500);
                 }
               }
             } catch(e) {

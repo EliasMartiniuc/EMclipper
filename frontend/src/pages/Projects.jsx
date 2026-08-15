@@ -1,14 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Video, Clock, ChevronRight } from 'lucide-react';
 
 export default function Projects() {
-  // Mockup data for the dashboard
-  const projects = [
-    { id: '146dbf64-7cf3-4427-b1ca-6e829f738c67', title: 'Full Podcast Ep 1', duration: '45:20', date: 'Oct 24, 2026', clips: 6 },
-    { id: '2', title: 'Tech Review Setup', duration: '12:05', date: 'Oct 22, 2026', clips: 3 },
-    { id: '3', title: 'Vlog: Day in the Life', duration: '22:15', date: 'Oct 15, 2026', clips: 8 },
-  ];
+  const [projects, setProjects] = useState([]);
+
+  useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem('projects') || '[]');
+    setProjects(saved);
+  }, []);
 
   return (
     <div>
