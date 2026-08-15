@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Upload, XCircle, PlayCircle, Loader2 } from 'lucide-react';
 import { useUpload } from '../UploadContext';
 
@@ -114,11 +115,11 @@ export default function Home() {
 
               {activeJobId && (
                 <div style={{ marginTop: '16px' }}>
-                  <a href={`/projects/${activeJobId}`} style={{ textDecoration: 'none' }}>
+                  <Link to={`/projects/${activeJobId}`} style={{ textDecoration: 'none' }}>
                     <button className="neu-btn-primary" style={{ width: '100%', animation: 'pulse 2s infinite' }}>
                       <PlayCircle size={18} /> See Clips
                     </button>
-                  </a>
+                  </Link>
                 </div>
               )}
             </div>
