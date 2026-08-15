@@ -6,7 +6,7 @@ import { useUpload } from '../UploadContext';
 export default function Home() {
   const {
     file, handleFileChange, isProcessing, progress, progressText, 
-    speedText, logs, error, startProcessing, stopProcessing, activeJobId
+    speedText, logs, error, startProcessing, stopProcessing, activeJobId, hasClips
   } = useUpload();
   
   const logEndRef = useRef(null);
@@ -113,7 +113,7 @@ export default function Home() {
                 <XCircle size={18} /> Stop Processing
               </button>
 
-              {activeJobId && (
+              {activeJobId && hasClips && (
                 <div style={{ marginTop: '16px' }}>
                   <Link to={`/projects/${activeJobId}`} style={{ textDecoration: 'none' }}>
                     <button className="neu-btn-primary" style={{ width: '100%', animation: 'pulse 2s infinite' }}>

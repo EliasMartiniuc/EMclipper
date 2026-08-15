@@ -75,6 +75,7 @@ export function UploadProvider({ children }) {
   const [error, setError] = useState('');
   const [activeJobId, setActiveJobId] = useState(null);
   const [thumbnail, setThumbnail] = useState(null);
+  const [hasClips, setHasClips] = useState(false);
   const abortControllerRef = useRef(null);
   
   const navigate = useNavigate();
@@ -83,8 +84,13 @@ export function UploadProvider({ children }) {
     const video = document.createElement('video');
     const url = URL.createObjectURL(videoFile);
     video.src = url;
-    video.currentTime = 1.0; // Seek to 1s to avoid black frames
     video.muted = true;
+    video.playsInline = true;
+    
+    video.onloadedmetadata = () => {
+      // Seek to 1s or half the video if it's shorter than 1s
+      video.currentTime = Math.min(1.0, video.duration / 2);
+    };
     
     video.onseeked = () => {
       const canvas = document.createElement('canvas');
@@ -94,6 +100,10 @@ export function UploadProvider({ children }) {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       setThumbnail(canvas.toDataURL('image/jpeg', 0.7));
+      URL.revokeObjectURL(url);
+    };
+
+    video.onerror = () => {
       URL.revokeObjectURL(url);
     };
   };
@@ -113,6 +123,7 @@ export function UploadProvider({ children }) {
     }
     setIsProcessing(false);
     setActiveJobId(null);
+    setHasClips(false);
     setProgressText('Processing stopped.');
     setLogs(prev => [...prev, { level: 'error', message: 'User stopped processing.' }]);
   };
@@ -129,6 +140,7 @@ export function UploadProvider({ children }) {
     setProgress(0);
     setProgressText('Starting upload...');
     setSpeedText('');
+    setHasClips(false);
 
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
@@ -243,6 +255,7 @@ export function UploadProvider({ children }) {
                 setProgressText(parsed.message);
               }
               if (parsed.clip) {
+                setHasClips(true);
                 // Strip video_data (base64) — it's way too big for localStorage!
                 const { video_data, ...clipMeta } = parsed.clip;
                 
@@ -335,8 +348,8 @@ export function UploadProvider({ children }) {
   };
 
   const contextValue = useMemo(() => ({
-    file, handleFileChange, isProcessing, progress, progressText, speedText, logs, error, startProcessing, stopProcessing, activeJobId
-  }), [file, isProcessing, progress, progressText, speedText, logs, error, activeJobId]);
+    file, handleFileChange, isProcessing, progress, progressText, speedText, logs, error, startProcessing, stopProcessing, activeJobId, hasClips
+  }), [file, isProcessing, progress, progressText, speedText, logs, error, activeJobId, hasClips]);
 
   return (
     <UploadContext.Provider value={contextValue}>

@@ -196,6 +196,7 @@ h1, h2, h3, h4 {
 .kinetic-text {
   background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-color) 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: bgPan 5s infinite alternate ease-in-out;
   background-size: 200% 200%;
