@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useRef } from 'react';
+import React, { createContext, useContext, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const UploadContext = createContext();
@@ -334,10 +334,12 @@ export function UploadProvider({ children }) {
     }
   };
 
+  const contextValue = useMemo(() => ({
+    file, handleFileChange, isProcessing, progress, progressText, speedText, logs, error, startProcessing, stopProcessing, activeJobId
+  }), [file, isProcessing, progress, progressText, speedText, logs, error, activeJobId]);
+
   return (
-    <UploadContext.Provider value={{
-      file, handleFileChange, isProcessing, progress, progressText, speedText, logs, error, startProcessing, stopProcessing, activeJobId
-    }}>
+    <UploadContext.Provider value={contextValue}>
       {children}
     </UploadContext.Provider>
   );
