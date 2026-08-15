@@ -4,6 +4,53 @@ import { useNavigate } from 'react-router-dom';
 const UploadContext = createContext();
 const API = '';
 
+// ─── IndexedDB Helpers for Video Storage ─────────────────────────────────────
+const initDB = () => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('AI_Clipper_DB', 1);
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('videos')) {
+        db.createObjectStore('videos', { keyPath: 'clipId' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+export const saveVideoData = async (clipId, base64Data) => {
+  try {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('videos', 'readwrite');
+      const store = tx.objectStore('videos');
+      store.put({ clipId, data: base64Data });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject();
+    });
+  } catch (err) {
+    console.error('Failed to save video to IndexedDB:', err);
+  }
+};
+
+export const getVideoData = async (clipId) => {
+  try {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('videos', 'readonly');
+      const store = tx.objectStore('videos');
+      const req = store.get(clipId);
+      req.onsuccess = () => resolve(req.result ? req.result.data : null);
+      req.onerror = () => reject();
+    });
+  } catch (err) {
+    console.error('Failed to read video from IndexedDB:', err);
+    return null;
+  }
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function UploadProvider({ children }) {
   const [file, setFile] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -153,6 +200,15 @@ export function UploadProvider({ children }) {
               if (parsed.clip) {
                 // Strip video_data (base64) — it's way too big for localStorage!
                 const { video_data, ...clipMeta } = parsed.clip;
+                
+                // Generate unique clipId
+                const clipId = `${jobId}_${clipMeta.filename}`;
+                clipMeta.clipId = clipId;
+
+                // Save heavy video data to IndexedDB
+                if (video_data) {
+                  saveVideoData(clipId, video_data);
+                }
                 
                 // Save it to localStorage instantly!
                 const saved = JSON.parse(localStorage.getItem('projects') || '[]');

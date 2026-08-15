@@ -40,8 +40,8 @@ export default function Projects() {
               </div>
               <h3 style={{ fontSize: '1.25rem', marginBottom: '8px' }}>{proj.title}</h3>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} /> {proj.duration}</span>
-                <span>{proj.clips} Clips Generated</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} /> {proj.date}</span>
+                <span>{proj.clips ? proj.clips.length : 0} Clips Generated</span>
               </div>
             </div>
           </Link>
