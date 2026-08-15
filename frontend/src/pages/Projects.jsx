@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Video, Clock, ChevronRight } from 'lucide-react';
+import { Video, Clock, Trash2 } from 'lucide-react';
+import { deleteVideoData } from '../UploadContext';
 
 export default function Projects() {
   const [projects, setProjects] = useState([]);
@@ -9,6 +10,26 @@ export default function Projects() {
     const saved = JSON.parse(localStorage.getItem('projects') || '[]');
     setProjects(saved);
   }, []);
+
+  const handleDeleteProject = (e, projId) => {
+    e.preventDefault(); // Stop Link navigation
+    if (window.confirm('Are you sure you want to delete this project and all its clips?')) {
+      const saved = JSON.parse(localStorage.getItem('projects') || '[]');
+      const projToDelete = saved.find(p => p.id === projId);
+      
+      // Cleanup IndexedDB memory
+      if (projToDelete && projToDelete.clips) {
+        projToDelete.clips.forEach(clip => {
+          if (clip.clipId) deleteVideoData(clip.clipId);
+        });
+      }
+
+      // Cleanup localStorage
+      const updated = saved.filter(p => p.id !== projId);
+      localStorage.setItem('projects', JSON.stringify(updated));
+      setProjects(updated);
+    }
+  };
 
   return (
     <div>
@@ -25,7 +46,25 @@ export default function Projects() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
         {projects.map(proj => (
           <Link key={proj.id} to={`/projects/${proj.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-            <div className="neu-card neu-card-interactive" style={{ padding: '24px', cursor: 'pointer' }}>
+            <div className="neu-card neu-card-interactive" style={{ padding: '24px', cursor: 'pointer', position: 'relative' }}>
+              <button 
+                onClick={(e) => handleDeleteProject(e, proj.id)}
+                style={{
+                  position: 'absolute',
+                  top: '16px',
+                  right: '16px',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  zIndex: 10
+                }}
+                onMouseOver={(e) => e.currentTarget.style.color = 'red'}
+                onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+              >
+                <Trash2 size={20} />
+              </button>
+
               <div style={{ 
                 background: 'rgba(138,122,237,0.1)', 
                 height: '160px', 

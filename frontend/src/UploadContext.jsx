@@ -49,6 +49,20 @@ export const getVideoData = async (clipId) => {
     return null;
   }
 };
+export const deleteVideoData = async (clipId) => {
+  try {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('videos', 'readwrite');
+      const store = tx.objectStore('videos');
+      const req = store.delete(clipId);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject();
+    });
+  } catch (err) {
+    console.error('Failed to delete video from IndexedDB:', err);
+  }
+};
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function UploadProvider({ children }) {
