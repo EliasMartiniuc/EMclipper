@@ -1,0 +1,203 @@
+:root {
+  --bg-color: #F7F7FA;
+  --text-primary: #212529;
+  --text-muted: #6C757D;
+  --accent-color: #8A7AED;
+  --accent-hover: #7562D7;
+  
+  --shadow-light: #FFFFFF;
+  --shadow-dark: #C4C9D3;
+
+  /* Standard extruded neumorphic shadow */
+  --neu-shadow: 
+    8px 8px 16px var(--shadow-dark), 
+    -8px -8px 16px var(--shadow-light);
+
+  /* Smaller extruded shadow for small elements */
+  --neu-shadow-sm: 
+    4px 4px 8px var(--shadow-dark), 
+    -4px -4px 8px var(--shadow-light);
+
+  /* Inset shadow (sunken) for pressed/active states */
+  --neu-inset: 
+    inset 6px 6px 12px var(--shadow-dark), 
+    inset -6px -6px 12px var(--shadow-light);
+
+  /* Subtle background gradient for accents */
+  --gradient-glow: linear-gradient(135deg, rgba(138,122,237,0.1) 0%, rgba(0,255,255,0.05) 100%);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Background Soft Glows */
+body::before {
+  content: '';
+  position: absolute;
+  top: -20vh;
+  left: -20vw;
+  width: 60vw;
+  height: 60vw;
+  background: radial-gradient(circle, rgba(138,122,237,0.15) 0%, rgba(247,247,250,0) 70%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+body::after {
+  content: '';
+  position: absolute;
+  bottom: -20vh;
+  right: -20vw;
+  width: 60vw;
+  height: 60vw;
+  background: radial-gradient(circle, rgba(0,255,255,0.1) 0%, rgba(247,247,250,0) 70%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Neumorphic Components */
+.neu-box {
+  background: var(--bg-color);
+  box-shadow: var(--neu-shadow);
+  border-radius: 24px;
+  padding: 24px;
+  transition: all 0.3s ease;
+}
+
+.neu-btn {
+  background: var(--bg-color);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: var(--neu-shadow-sm);
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.neu-btn:hover {
+  color: var(--accent-color);
+  transform: translateY(-1px);
+}
+
+.neu-btn:active, .neu-btn.active {
+  box-shadow: var(--neu-inset);
+  color: var(--accent-color);
+  transform: translateY(1px);
+}
+
+.neu-btn-primary {
+  background: var(--accent-color);
+  color: #fff;
+  /* Primary buttons use a slightly different shadow so they don't look muddy */
+  box-shadow: 4px 4px 10px rgba(138, 122, 237, 0.4),
+              -2px -2px 8px rgba(255, 255, 255, 0.8);
+}
+
+.neu-btn-primary:hover {
+  background: var(--accent-hover);
+  color: #fff;
+}
+
+.neu-btn-primary:active {
+  box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.2), inset -2px -2px 4px rgba(255, 255, 255, 0.2);
+}
+
+.neu-input {
+  background: var(--bg-color);
+  border: none;
+  box-shadow: var(--neu-inset);
+  border-radius: 12px;
+  padding: 16px;
+  font-size: 1rem;
+  color: var(--text-primary);
+  width: 100%;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.neu-input:focus {
+  box-shadow: inset 8px 8px 16px var(--shadow-dark), inset -8px -8px 16px var(--shadow-light), 0 0 0 2px rgba(138,122,237,0.3);
+}
+
+.neu-card {
+  background: var(--bg-color);
+  box-shadow: var(--neu-shadow);
+  border-radius: 24px;
+  padding: 32px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.neu-card:hover {
+  transform: translateY(-5px) rotate(0.5deg);
+}
+
+.neu-card-interactive:active {
+  box-shadow: var(--neu-inset);
+  transform: translateY(0) rotate(0deg);
+}
+
+/* Animations */
+@keyframes pulseGlow {
+  0% { box-shadow: 0 0 0 0 rgba(138, 122, 237, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(138, 122, 237, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(138, 122, 237, 0); }
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--bg-color);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  box-shadow: var(--neu-shadow-sm);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Typography */
+h1, h2, h3, h4 {
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.kinetic-text {
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-color) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: bgPan 5s infinite alternate ease-in-out;
+  background-size: 200% 200%;
+}
+
+@keyframes bgPan {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+/* Utilities */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}

@@ -644,30 +644,9 @@ async def download_clip(job_id: str, filename: str):
     )
 
 
-# ─── Frontend Serving ──────────────────────────────────────────────────────────
+# ─── Frontend Serving (SPA Routing) ──────────────────────────────────────────
 
-frontend_dir = BASE_DIR / "frontend"
-
-
-@app.get("/")
-async def serve_frontend():
-    """Serve the frontend HTML page."""
-    index_path = frontend_dir / "index.html"
-    if index_path.exists():
-        return FileResponse(str(index_path), media_type="text/html")
-    return HTMLResponse(
-        "<h1>AI Video Clipper API</h1>"
-        "<p>Frontend not found. Place index.html in the frontend/ directory.</p>"
-    )
-
-
-# Mount static files from frontend directory (for CSS, JS, images)
-if frontend_dir.exists():
-    app.mount(
-        "/static",
-        StaticFiles(directory=str(frontend_dir)),
-        name="static",
-    )
+frontend_dir = BASE_DIR / "frontend" / "dist"
 
 # Mount outputs directory for direct video streaming/preview
 if OUTPUTS_DIR.exists():
@@ -675,6 +654,31 @@ if OUTPUTS_DIR.exists():
         "/outputs",
         StaticFiles(directory=str(OUTPUTS_DIR)),
         name="outputs",
+    )
+
+# Mount Vite assets directory
+assets_dir = frontend_dir / "assets"
+if assets_dir.exists():
+    app.mount(
+        "/assets",
+        StaticFiles(directory=str(assets_dir)),
+        name="assets",
+    )
+
+@app.get("/{full_path:path}")
+async def serve_frontend(full_path: str):
+    """Serve the frontend HTML page for SPA routing."""
+    # Exclude API endpoints from falling through to the frontend
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="API route not found")
+        
+    index_path = frontend_dir / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path), media_type="text/html")
+        
+    return HTMLResponse(
+        "<h1>AI Video Clipper API</h1>"
+        "<p>Frontend not found. Please run 'npm run build' in the frontend/ directory.</p>"
     )
 
 
