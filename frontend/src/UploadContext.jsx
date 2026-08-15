@@ -74,14 +74,36 @@ export function UploadProvider({ children }) {
   const [logs, setLogs] = useState([]);
   const [error, setError] = useState('');
   const [activeJobId, setActiveJobId] = useState(null);
+  const [thumbnail, setThumbnail] = useState(null);
   const abortControllerRef = useRef(null);
   
   const navigate = useNavigate();
+
+  const generateThumbnail = (videoFile) => {
+    const video = document.createElement('video');
+    const url = URL.createObjectURL(videoFile);
+    video.src = url;
+    video.currentTime = 1.0; // Seek to 1s to avoid black frames
+    video.muted = true;
+    
+    video.onseeked = () => {
+      const canvas = document.createElement('canvas');
+      // 16:9 aspect ratio thumbnail
+      canvas.width = 320;
+      canvas.height = 180;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      setThumbnail(canvas.toDataURL('image/jpeg', 0.7));
+      URL.revokeObjectURL(url);
+    };
+  };
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
       setFile(e.target.files[0]);
       setError('');
+      setThumbnail(null);
+      generateThumbnail(e.target.files[0]);
     }
   };
 
@@ -233,6 +255,7 @@ export function UploadProvider({ children }) {
                     id: jobId, 
                     title: filename, 
                     date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), 
+                    thumbnail: thumbnail,
                     clips: [clipMeta] 
                   });
                 } else {
@@ -267,6 +290,7 @@ export function UploadProvider({ children }) {
                       id: jobId,
                       title: parsed.video_title || filename,
                       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                      thumbnail: thumbnail,
                       clips: cleanClips
                     };
                     existingProjects.unshift(newProject);
@@ -276,6 +300,8 @@ export function UploadProvider({ children }) {
                   window.dispatchEvent(new Event('local-storage-update'));
 
                   setTimeout(() => {
+                     setFile(null); // Clear selected file
+                     setThumbnail(null);
                      navigate(`/projects/${jobId}`);
                   }, 1500);
                 }

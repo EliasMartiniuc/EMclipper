@@ -73,9 +73,14 @@ export default function Projects() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'var(--accent-color)'
+                color: 'var(--accent-color)',
+                overflow: 'hidden'
               }}>
-                <Video size={48} strokeWidth={1} />
+                {proj.thumbnail ? (
+                  <img src={proj.thumbnail} alt="Thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <Video size={48} strokeWidth={1} />
+                )}
               </div>
               <h3 style={{ fontSize: '1.25rem', marginBottom: '8px' }}>{proj.title}</h3>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.875rem' }}>

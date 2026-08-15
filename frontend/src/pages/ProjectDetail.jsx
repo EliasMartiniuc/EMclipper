@@ -50,7 +50,7 @@ const ClipCard = ({ clip, videoId }) => {
         overflow: 'hidden'
       }}>
         {videoUrl ? (
-          <video src={videoUrl} controls style={{ width: '100%', height: '100%', objectFit: 'contain' }}></video>
+          <video src={videoUrl} preload="metadata" controls style={{ width: '100%', height: '100%', objectFit: 'contain' }}></video>
         ) : (
           <Loader2 className="spinner" size={32} />
         )}
@@ -67,9 +67,6 @@ const ClipCard = ({ clip, videoId }) => {
       </div>
 
       <div style={{ display: 'flex', gap: '12px' }}>
-        <button className="neu-btn" style={{ flex: 1, padding: '12px' }}>
-          <Edit3 size={18} /> Edit
-        </button>
         <a href={videoUrl} download={clip.filename} style={{ flex: 1, textDecoration: 'none' }}>
           <button className="neu-btn-primary" style={{ width: '100%', padding: '12px' }}>
             <Download size={18} /> Download
