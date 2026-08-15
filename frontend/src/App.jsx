@@ -6,6 +6,7 @@ import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import Subscription from './pages/Subscription';
 import Auth from './pages/Auth';
+import { UploadProvider } from './UploadContext';
 
 function Navbar() {
   const location = useLocation();
@@ -64,17 +65,19 @@ function Navbar() {
 function App() {
   return (
     <Router>
-      <Navbar />
-      <main className="container" style={{ paddingBottom: '100px' }}>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/projects/:videoId" element={<ProjectDetail />} />
-          <Route path="/subscription" element={<Subscription />} />
-          <Route path="/login" element={<Auth type="login" />} />
-          <Route path="/signup" element={<Auth type="signup" />} />
-        </Routes>
-      </main>
+      <UploadProvider>
+        <Navbar />
+        <main className="container" style={{ paddingBottom: '100px' }}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/projects/:videoId" element={<ProjectDetail />} />
+            <Route path="/subscription" element={<Subscription />} />
+            <Route path="/login" element={<Auth type="login" />} />
+            <Route path="/signup" element={<Auth type="signup" />} />
+          </Routes>
+        </main>
+      </UploadProvider>
     </Router>
   );
 }
