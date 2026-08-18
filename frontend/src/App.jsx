@@ -19,7 +19,7 @@ function Navbar() {
 
   return (
     <nav style={{ padding: '24px 0', marginBottom: '40px' }}>
-      <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="container nav-container">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div className="neu-box" style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-color)' }}>
             <Video size={24} strokeWidth={2.5} />
@@ -29,7 +29,7 @@ function Navbar() {
           </Link>
         </div>
 
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+        <div className="nav-links">
           {navLinks.map(link => {
             const isActive = location.pathname === link.path || (link.path !== '/' && location.pathname.startsWith(link.path));
             return (
@@ -43,7 +43,7 @@ function Navbar() {
           })}
         </div>
 
-        <div style={{ display: 'flex', gap: '16px' }}>
+        <div className="nav-auth">
           <Link to="/login" style={{ textDecoration: 'none' }}>
             <button className="neu-btn">
               <LogIn size={18} />

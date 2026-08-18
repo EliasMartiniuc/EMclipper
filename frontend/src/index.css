@@ -213,3 +213,76 @@ h1, h2, h3, h4 {
   margin: 0 auto;
   padding: 0 24px;
 }
+
+.nav-container {
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.nav-links, .nav-auth {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.home-title {
+  font-size: 3.5rem;
+  margin-bottom: 16px;
+}
+
+.home-subtitle {
+  color: var(--text-muted);
+  font-size: 1.25rem;
+}
+
+.upload-box {
+  border: 2px dashed var(--shadow-dark);
+  border-radius: 16px;
+  padding: 40px;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.clip-preview {
+  background: black;
+  height: 450px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justifyContent: center;
+  color: var(--text-muted);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Responsive Overrides */
+@media (max-width: 768px) {
+  .nav-container {
+    flex-direction: column;
+    justify-content: center;
+  }
+  .nav-links, .nav-auth {
+    justify-content: center;
+    width: 100%;
+  }
+  .home-title {
+    font-size: 2.25rem !important;
+  }
+  .home-subtitle {
+    font-size: 1rem !important;
+  }
+  .upload-box {
+    padding: 24px !important;
+  }
+  .neu-card {
+    padding: 20px !important;
+  }
+  .clip-preview {
+    height: 300px !important;
+  }
+}

@@ -37,18 +37,7 @@ const ClipCard = ({ clip, videoId }) => {
 
   return (
     <div className="neu-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ 
-        background: 'black', 
-        height: '450px', 
-        borderRadius: '16px', 
-        marginBottom: '20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'var(--text-muted)',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
+      <div className="clip-preview">
         {videoUrl ? (
           <video src={videoUrl} preload="metadata" controls style={{ width: '100%', height: '100%', objectFit: 'contain' }}></video>
         ) : (
@@ -108,7 +97,7 @@ export default function ProjectDetail() {
         <p style={{ color: 'var(--text-muted)' }}>Project ID: {videoId}</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '24px' }}>
         {project.clips && project.clips.length > 0 ? project.clips.map((clip, index) => (
           <ClipCard key={index} clip={clip} videoId={videoId} />
         )) : (

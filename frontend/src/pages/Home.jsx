@@ -20,10 +20,10 @@ export default function Home() {
   return (
     <div>
       <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-        <h1 className="kinetic-text" style={{ fontSize: '3.5rem', marginBottom: '16px' }}>
+        <h1 className="kinetic-text home-title">
           AI that turns long videos into viral shorts in seconds.
         </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '1.25rem' }}>
+        <p className="home-subtitle">
           Upload your podcast or vlog. We find the highlights and generate TikTok-ready clips automatically.
         </p>
       </div>
@@ -34,13 +34,7 @@ export default function Home() {
           
           {!isProcessing ? (
             <>
-              <div style={{ 
-                border: '2px dashed var(--shadow-dark)', 
-                borderRadius: '16px', 
-                padding: '40px', 
-                marginBottom: '24px',
-                position: 'relative'
-              }}>
+              <div className="upload-box">
                 <Upload size={48} color="var(--accent-color)" style={{ marginBottom: '16px' }} />
                 <h3 style={{ marginBottom: '8px' }}>Drop your video file here</h3>
                 <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.875rem' }}>MP4, MOV, or WEBM up to unlimited size</p>
