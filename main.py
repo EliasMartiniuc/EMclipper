@@ -23,6 +23,7 @@ import base64
 import asyncio
 import logging
 import threading
+import boto3
 import ctypes
 import os
 import signal
@@ -38,7 +39,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
 from schemas import JobRequest, JobStatus
-from config import BASE_DIR, DOWNLOADS_DIR, OUTPUTS_DIR, TEMP_DIR
+from config import (
+    BASE_DIR, DOWNLOADS_DIR, OUTPUTS_DIR, TEMP_DIR,
+    R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT_URL, R2_BUCKET_NAME, R2_PUBLIC_URL
+)
+
+# Initialize Cloudflare R2 Client
+s3_client = boto3.client(
+    "s3",
+    endpoint_url=R2_ENDPOINT_URL,
+    aws_access_key_id=R2_ACCESS_KEY_ID,
+    aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+    region_name="auto" # Cloudflare R2 uses 'auto' region
+) if R2_ACCESS_KEY_ID else None
 
 import downloader
 import transcriber
@@ -320,14 +333,24 @@ def process_video_stateless(job: Job):
             # Record the clip result
             file_size_mb = output_filepath.stat().st_size / (1024 * 1024)
             
-            # Read the rendered video and base64-encode it for streaming
-            # through SSE. This avoids the Cloud Run multi-instance routing
-            # problem where downloads go to a different instance.
-            logger.info(f"Clip {clip_num}: Reading rendered file ({file_size_mb:.1f} MB) for base64 encoding...")
-            with open(output_filepath, "rb") as vf:
-                video_bytes = vf.read()
-            video_b64 = base64.b64encode(video_bytes).decode("ascii")
-            logger.info(f"Clip {clip_num}: Base64 encoded ({len(video_b64)} chars)")
+            # Upload the rendered video directly to Cloudflare R2
+            logger.info(f"Clip {clip_num}: Uploading to Cloudflare R2 ({file_size_mb:.1f} MB)...")
+            job.add_progress("rendering", f"Clip {clip_num}: Uploading to Cloudflare R2...")
+            
+            r2_key = f"{job_id}/{output_filename}"
+            if s3_client:
+                s3_client.upload_file(
+                    str(output_filepath),
+                    R2_BUCKET_NAME,
+                    r2_key,
+                    ExtraArgs={'ContentType': 'video/mp4'}
+                )
+                
+                video_url = f"{R2_PUBLIC_URL}/{r2_key}"
+                logger.info(f"Clip {clip_num}: Uploaded successfully: {video_url}")
+            else:
+                video_url = None
+                logger.warning("No S3 client configured, skipping R2 upload.")
             
             clip_result = {
                 "index": clip_idx,
@@ -336,7 +359,7 @@ def process_video_stateless(job: Job):
                 "duration": round(clip_duration, 1),
                 "score": highlight.score,
                 "reason": highlight.reason,
-                "video_data": video_b64,
+                "video_url": video_url,
             }
             job.clips.append(clip_result)
 

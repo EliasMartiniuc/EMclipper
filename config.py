@@ -60,3 +60,13 @@ SUBTITLE_WORDS_PER_LINE = int(os.getenv("SUBTITLE_WORDS_PER_LINE", "4"))
 HIGHLIGHT_MIN_DURATION = int(os.getenv("HIGHLIGHT_MIN_DURATION", "20"))
 HIGHLIGHT_MAX_DURATION = int(os.getenv("HIGHLIGHT_MAX_DURATION", "180"))
 HIGHLIGHT_COUNT = int(os.getenv("HIGHLIGHT_COUNT", "3"))
+
+# ─── Cloudflare R2 & Supabase ─────────────────────────────────────────────────
+R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID", "")
+R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "")
+R2_ENDPOINT_URL = os.getenv("R2_ENDPOINT_URL", "")
+R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME", "emclipper-videos")
+R2_PUBLIC_URL = os.getenv("R2_PUBLIC_URL", "")
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
