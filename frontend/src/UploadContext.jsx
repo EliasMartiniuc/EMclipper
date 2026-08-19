@@ -71,7 +71,7 @@ export function UploadProvider({ children }) {
 
   const { user } = useAuth();
 
-  const handleUpload = async () => {
+  const startProcessing = async () => {
     if (!file) {
       setError("Please select a video file.");
       return;
@@ -81,16 +81,13 @@ export function UploadProvider({ children }) {
       return;
     }
 
-    try {
-      setIsProcessing(true);
-      setError('');
-      setLogs([]);
-      setHasClips(false);
-      setProgress(0);
-      setProgressText('Preparing upload...');
-      setSpeedText('');
-
-      const jobId = crypto.randomUUID();
+    setIsProcessing(true);
+    setError('');
+    setLogs([]);
+    setHasClips(false);
+    setProgress(0);
+    setProgressText('Preparing upload...');
+    setSpeedText('');
 
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
