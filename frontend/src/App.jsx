@@ -6,6 +6,7 @@ import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import Subscription from './pages/Subscription';
 import Auth from './pages/Auth';
+import AuthCallback from './pages/AuthCallback';
 import { UploadProvider } from './UploadContext';
 import { AuthProvider, useAuth } from './AuthContext';
 import { LogOut } from 'lucide-react';
@@ -93,6 +94,7 @@ function App() {
             <Route path="/subscription" element={<Subscription />} />
             <Route path="/login" element={<Auth type="login" />} />
             <Route path="/signup" element={<Auth type="signup" />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
           </Routes>
         </main>
       </UploadProvider>
