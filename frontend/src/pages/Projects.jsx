@@ -18,7 +18,7 @@ export default function Projects() {
       
       const { data, error } = await supabase
         .from('projects')
-        .select('*, clips(id)')
+        .select('*, clips(video_url)')
         .order('created_at', { ascending: false });
         
       if (error) {
@@ -79,7 +79,11 @@ export default function Projects() {
           <div style={{ padding: '40px', textAlign: 'center', gridColumn: '1 / -1', color: 'var(--text-muted)' }}>
             {user ? "No projects found. Start by generating some clips!" : "Log in to see your projects."}
           </div>
-        ) : projects.map(proj => (
+        ) : projects.map(proj => {
+          // Find the first available video URL to use as thumbnail
+          const thumbnailVideo = proj.clips && proj.clips.find(c => c.video_url)?.video_url;
+          
+          return (
           <Link key={proj.id} to={`/projects/${proj.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="neu-card neu-card-interactive" style={{ padding: '24px', cursor: 'pointer', position: 'relative' }}>
               <button 
@@ -109,9 +113,16 @@ export default function Projects() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'var(--accent-color)',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                position: 'relative'
               }}>
-                {proj.thumbnail ? (
+                {thumbnailVideo ? (
+                  <video 
+                    src={`${thumbnailVideo}#t=0.5`} 
+                    preload="metadata"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  ></video>
+                ) : proj.thumbnail ? (
                   <img src={proj.thumbnail} alt="Thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <Video size={48} strokeWidth={1} />
@@ -124,7 +135,8 @@ export default function Projects() {
               </div>
             </div>
           </Link>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
