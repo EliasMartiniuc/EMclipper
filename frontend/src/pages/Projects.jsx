@@ -37,7 +37,7 @@ export default function Projects() {
     if (window.confirm('Are you sure you want to delete this project and all its clips?')) {
       // 1. Delete files from Cloudflare R2 via backend
       try {
-        await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/project/${projId}`, { method: 'DELETE' });
+        await fetch(`/api/project/${projId}`, { method: 'DELETE' });
       } catch (err) {
         console.error("Failed to delete R2 files:", err);
       }
