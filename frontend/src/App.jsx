@@ -27,7 +27,7 @@ function Navbar() {
       <div className="container nav-container">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div className="neu-box" style={{ padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img src="/logo.jpg" alt="EMclipper Logo" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover' }} />
+            <img src="/logo.jpg" alt="EMclipper Logo" style={{ width: '48px', height: '48px', borderRadius: '12px', objectFit: 'cover' }} />
           </div>
           <Link to="/" style={{ textDecoration: 'none', color: 'var(--text-primary)' }}>
             <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>EMclipper</h2>
