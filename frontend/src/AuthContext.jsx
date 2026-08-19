@@ -8,9 +8,15 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    // Safely get initial session
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        console.error("Supabase getSession error:", error);
+      }
+      setUser(data?.session?.user ?? null);
+      setLoading(false);
+    }).catch(err => {
+      console.error("Unexpected auth error:", err);
       setLoading(false);
     });
 
@@ -19,7 +25,7 @@ export function AuthProvider({ children }) {
       setUser(session?.user ?? null);
     });
 
-    return () => subscription.unsubscribe();
+    return () => subscription?.unsubscribe();
   }, []);
 
   const signOut = async () => {
