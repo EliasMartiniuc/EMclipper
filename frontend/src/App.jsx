@@ -26,8 +26,8 @@ function Navbar() {
     <nav style={{ padding: '24px 0', marginBottom: '40px', position: 'relative' }}>
       <div className="container nav-container">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div className="neu-box" style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-color)' }}>
-            <Video size={24} strokeWidth={2.5} />
+          <div className="neu-box" style={{ padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src="/logo.jpg" alt="EMclipper Logo" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover' }} />
           </div>
           <Link to="/" style={{ textDecoration: 'none', color: 'var(--text-primary)' }}>
             <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>EMclipper</h2>
