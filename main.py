@@ -157,14 +157,16 @@ def process_video_stateless(job: Job):
             
         # Check distributed state in R2 (in case cancel hit a different Cloud Run instance)
         if s3_client:
+            cancelled_in_r2 = False
             try:
                 s3_client.head_object(Bucket=R2_BUCKET_NAME, Key=f"jobs/{job_id}/CANCELLED")
+                cancelled_in_r2 = True
+            except Exception:
+                pass  # File doesn't exist or S3 error — not cancelled
+            
+            if cancelled_in_r2:
                 job.cancelled = True
                 raise RuntimeError("Job cancelled by user (detected via R2)")
-            except Exception as e:
-                # If the file doesn't exist, head_object throws ClientError (404 Not Found)
-                if getattr(e, 'response', {}).get('Error', {}).get('Code') != '404':
-                    pass # Ignore other S3 errors so we don't break the pipeline randomly
 
 
     try:
@@ -345,6 +347,9 @@ def process_video_stateless(job: Job):
                 subprocess_tracker=job.active_subprocesses,
             )
 
+            # Check cancellation AFTER render completes but BEFORE uploading to R2
+            check_cancelled()
+
             # Record the clip result
             file_size_mb = output_filepath.stat().st_size / (1024 * 1024)
             
@@ -352,6 +357,9 @@ def process_video_stateless(job: Job):
             logger.info(f"Clip {clip_num}: Uploading to Cloudflare R2 ({file_size_mb:.1f} MB)...")
             job.add_progress("rendering", f"Clip {clip_num}: Uploading to Cloudflare R2...")
             
+            # One more check right before the upload
+            check_cancelled()
+
             r2_key = f"{job_id}/{output_filename}"
             if s3_client:
                 s3_client.upload_file(
