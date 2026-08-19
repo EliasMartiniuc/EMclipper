@@ -637,13 +637,16 @@ async def cancel_job(job_id: str):
 @app.delete("/api/project/{project_id}")
 async def delete_project_files(project_id: str):
     """Delete all files associated with a project from Cloudflare R2."""
-    prefix = f"jobs/{project_id}/"
+    # Clips are stored at {project_id}/filename.mp4
+    # Cancel markers are stored at jobs/{project_id}/CANCELLED
+    prefixes = [f"{project_id}/", f"jobs/{project_id}/"]
     try:
         paginator = s3_client.get_paginator('list_objects_v2')
-        for page in paginator.paginate(Bucket=R2_BUCKET_NAME, Prefix=prefix):
-            if 'Contents' in page:
-                objects_to_delete = [{'Key': obj['Key']} for obj in page['Contents']]
-                s3_client.delete_objects(Bucket=R2_BUCKET_NAME, Delete={'Objects': objects_to_delete})
+        for prefix in prefixes:
+            for page in paginator.paginate(Bucket=R2_BUCKET_NAME, Prefix=prefix):
+                if 'Contents' in page:
+                    objects_to_delete = [{'Key': obj['Key']} for obj in page['Contents']]
+                    s3_client.delete_objects(Bucket=R2_BUCKET_NAME, Delete={'Objects': objects_to_delete})
         return {"status": "deleted"}
     except Exception as e:
         logger.error(f"Error deleting files for project {project_id}: {e}")
