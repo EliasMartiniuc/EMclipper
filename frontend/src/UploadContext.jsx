@@ -1,69 +1,10 @@
 import React, { createContext, useContext, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from './supabase';
+import { useAuth } from './AuthContext';
 
 const UploadContext = createContext();
 const API = '';
-
-// ─── IndexedDB Helpers for Video Storage ─────────────────────────────────────
-const initDB = () => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('AI_Clipper_DB', 1);
-    request.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains('videos')) {
-        db.createObjectStore('videos', { keyPath: 'clipId' });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-};
-
-export const saveVideoData = async (clipId, base64Data) => {
-  try {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('videos', 'readwrite');
-      const store = tx.objectStore('videos');
-      store.put({ clipId, data: base64Data });
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject();
-    });
-  } catch (err) {
-    console.error('Failed to save video to IndexedDB:', err);
-  }
-};
-
-export const getVideoData = async (clipId) => {
-  try {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('videos', 'readonly');
-      const store = tx.objectStore('videos');
-      const req = store.get(clipId);
-      req.onsuccess = () => resolve(req.result ? req.result.data : null);
-      req.onerror = () => reject();
-    });
-  } catch (err) {
-    console.error('Failed to read video from IndexedDB:', err);
-    return null;
-  }
-};
-export const deleteVideoData = async (clipId) => {
-  try {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('videos', 'readwrite');
-      const store = tx.objectStore('videos');
-      const req = store.delete(clipId);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject();
-    });
-  } catch (err) {
-    console.error('Failed to delete video from IndexedDB:', err);
-  }
-};
-// ─────────────────────────────────────────────────────────────────────────────
 
 export function UploadProvider({ children }) {
   const [file, setFile] = useState(null);
@@ -128,19 +69,28 @@ export function UploadProvider({ children }) {
     setLogs(prev => [...prev, { level: 'error', message: 'User stopped processing.' }]);
   };
 
-  const startProcessing = async () => {
+  const { user } = useAuth();
+
+  const handleUpload = async () => {
     if (!file) {
-      setError('Please select a video file first.');
+      setError("Please select a video file.");
+      return;
+    }
+    if (!user) {
+      setError("You must be logged in to upload and save projects.");
       return;
     }
 
-    setIsProcessing(true);
-    setError('');
-    setLogs([]);
-    setProgress(0);
-    setProgressText('Starting upload...');
-    setSpeedText('');
-    setHasClips(false);
+    try {
+      setIsProcessing(true);
+      setError('');
+      setLogs([]);
+      setHasClips(false);
+      setProgress(0);
+      setProgressText('Preparing upload...');
+      setSpeedText('');
+
+      const jobId = crypto.randomUUID();
 
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
@@ -194,6 +144,18 @@ export function UploadProvider({ children }) {
 
       setSpeedText('');
       setProgressText('Upload Complete! Starting AI Processing...');
+
+      // Pre-create the Project in Supabase before processing starts
+      const { error: projError } = await supabase.from('projects').insert({
+        id: jobId,
+        user_id: user.id,
+        title: filename,
+        thumbnail_url: thumbnail || null,
+      });
+      if (projError) {
+        console.error("Failed to create project in database:", projError);
+        throw new Error("Database error while creating project.");
+      }
 
       const formData = new FormData();
       formData.append('subtitles_enabled', 'true');
@@ -256,37 +218,24 @@ export function UploadProvider({ children }) {
               }
               if (parsed.clip) {
                 setHasClips(true);
-                // Strip video_data (base64) — it's way too big for localStorage!
-                const { video_data, ...clipMeta } = parsed.clip;
+                const clipMeta = parsed.clip;
                 
-                // Generate unique clipId
-                const clipId = `${jobId}_${clipMeta.filename}`;
-                clipMeta.clipId = clipId;
-
-                // Save heavy video data to IndexedDB
-                if (video_data) {
-                  saveVideoData(clipId, video_data);
-                }
+                // Save it to Supabase Database instantly!
+                const { error: clipError } = await supabase.from('clips').insert({
+                  project_id: jobId,
+                  user_id: user.id,
+                  title: clipMeta.title,
+                  video_url: clipMeta.video_url,
+                  score: clipMeta.score,
+                  duration: clipMeta.duration
+                });
                 
-                // Save it to localStorage instantly!
-                const saved = JSON.parse(localStorage.getItem('projects') || '[]');
-                let projIndex = saved.findIndex(p => p.id === jobId);
-                if (projIndex === -1) {
-                  // create skeleton
-                  saved.unshift({ 
-                    id: jobId, 
-                    title: filename, 
-                    date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), 
-                    thumbnail: thumbnail,
-                    clips: [clipMeta] 
-                  });
+                if (clipError) {
+                  console.error("Failed to save clip to DB:", clipError);
                 } else {
-                  saved[projIndex].clips.push(clipMeta);
+                  // Fire a custom event so ProjectDetail can re-render if user is on that page
+                  window.dispatchEvent(new Event('db-update'));
                 }
-                localStorage.setItem('projects', JSON.stringify(saved));
-                
-                // Fire a custom event so ProjectDetail can re-render!
-                window.dispatchEvent(new Event('local-storage-update'));
               }
               if (eventType === 'done' || eventType === 'error') {
                 setIsProcessing(false);
@@ -294,32 +243,14 @@ export function UploadProvider({ children }) {
                   setLogs(prev => [...prev, { level: 'success', message: '✓ Processing finished successfully!' }]);
                   setProgressText('✓ Processing finished successfully!');
                   
-                  // Update project title from final done event, but DON'T overwrite clips
-                  // (they were already saved one-by-one above)
-                  const existingProjects = JSON.parse(localStorage.getItem('projects') || '[]');
-                  const projIdx = existingProjects.findIndex(p => p.id === jobId);
-                  if (projIdx !== -1) {
-                    // Update the title from the backend
-                    existingProjects[projIdx].title = parsed.video_title || existingProjects[projIdx].title;
-                    localStorage.setItem('projects', JSON.stringify(existingProjects));
-                  } else {
-                    // Fallback: save from done payload (strip video_data from each clip)
-                    const cleanClips = (parsed.clips || []).map(c => {
-                      const { video_data, ...meta } = c;
-                      return meta;
-                    });
-                    const newProject = {
-                      id: jobId,
-                      title: parsed.video_title || filename,
-                      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-                      thumbnail: thumbnail,
-                      clips: cleanClips
-                    };
-                    existingProjects.unshift(newProject);
-                    localStorage.setItem('projects', JSON.stringify(existingProjects));
+                  if (parsed.video_title) {
+                    await supabase.from('projects')
+                      .update({ title: parsed.video_title })
+                      .eq('id', jobId)
+                      .eq('user_id', user.id);
                   }
                   
-                  window.dispatchEvent(new Event('local-storage-update'));
+                  window.dispatchEvent(new Event('db-update'));
 
                   setTimeout(() => {
                      setFile(null); // Clear selected file

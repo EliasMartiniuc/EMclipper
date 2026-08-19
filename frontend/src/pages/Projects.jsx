@@ -1,33 +1,52 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Video, Clock, Trash2 } from 'lucide-react';
-import { deleteVideoData } from '../UploadContext';
+import { Video, Clock, Trash2, Loader2 } from 'lucide-react';
+import { supabase } from '../supabase';
+import { useAuth } from '../AuthContext';
 
 export default function Projects() {
   const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('projects') || '[]');
-    setProjects(saved);
-  }, []);
+    const fetchProjects = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*, clips(id)')
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error("Error fetching projects:", error);
+      } else {
+        setProjects(data || []);
+      }
+      setLoading(false);
+    };
 
-  const handleDeleteProject = (e, projId) => {
+    fetchProjects();
+  }, [user]);
+
+  const handleDeleteProject = async (e, projId) => {
     e.preventDefault(); // Stop Link navigation
     if (window.confirm('Are you sure you want to delete this project and all its clips?')) {
-      const saved = JSON.parse(localStorage.getItem('projects') || '[]');
-      const projToDelete = saved.find(p => p.id === projId);
-      
-      // Cleanup IndexedDB memory
-      if (projToDelete && projToDelete.clips) {
-        projToDelete.clips.forEach(clip => {
-          if (clip.clipId) deleteVideoData(clip.clipId);
-        });
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projId)
+        .eq('user_id', user.id);
+        
+      if (error) {
+        console.error("Error deleting project:", error);
+        alert("Failed to delete project.");
+      } else {
+        setProjects(prev => prev.filter(p => p.id !== projId));
       }
-
-      // Cleanup localStorage
-      const updated = saved.filter(p => p.id !== projId);
-      localStorage.setItem('projects', JSON.stringify(updated));
-      setProjects(updated);
     }
   };
 
@@ -44,7 +63,15 @@ export default function Projects() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '24px' }}>
-        {projects.map(proj => (
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center', gridColumn: '1 / -1' }}>
+            <Loader2 className="spinner" size={32} style={{ color: 'var(--accent-color)' }} />
+          </div>
+        ) : projects.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', gridColumn: '1 / -1', color: 'var(--text-muted)' }}>
+            {user ? "No projects found. Start by generating some clips!" : "Log in to see your projects."}
+          </div>
+        ) : projects.map(proj => (
           <Link key={proj.id} to={`/projects/${proj.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="neu-card neu-card-interactive" style={{ padding: '24px', cursor: 'pointer', position: 'relative' }}>
               <button 
@@ -84,7 +111,7 @@ export default function Projects() {
               </div>
               <h3 style={{ fontSize: '1.25rem', marginBottom: '8px' }}>{proj.title}</h3>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} /> {proj.date}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} /> {new Date(proj.created_at).toLocaleDateString()}</span>
                 <span>{proj.clips ? proj.clips.length : 0} Clips Generated</span>
               </div>
             </div>

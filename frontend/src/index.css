@@ -255,7 +255,7 @@ h1, h2, h3, h4 {
   margin-bottom: 20px;
   display: flex;
   align-items: center;
-  justifyContent: center;
+  justify-content: center;
   color: var(--text-muted);
   position: relative;
   overflow: hidden;

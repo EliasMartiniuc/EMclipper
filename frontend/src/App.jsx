@@ -7,9 +7,12 @@ import ProjectDetail from './pages/ProjectDetail';
 import Subscription from './pages/Subscription';
 import Auth from './pages/Auth';
 import { UploadProvider } from './UploadContext';
+import { AuthProvider, useAuth } from './AuthContext';
+import { LogOut } from 'lucide-react';
 
 function Navbar() {
   const location = useLocation();
+  const { user, signOut } = useAuth();
 
   const navLinks = [
     { path: '/', label: 'Home', icon: Video },
@@ -44,18 +47,32 @@ function Navbar() {
         </div>
 
         <div className="nav-auth">
-          <Link to="/login" style={{ textDecoration: 'none' }}>
-            <button className="neu-btn">
-              <LogIn size={18} />
-              Log In
-            </button>
-          </Link>
-          <Link to="/signup" style={{ textDecoration: 'none' }}>
-            <button className="neu-btn-primary">
-              <UserPlus size={18} />
-              Sign Up
-            </button>
-          </Link>
+          {user ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                {user.user_metadata?.full_name || user.email}
+              </span>
+              <button onClick={signOut} className="neu-btn" style={{ padding: '8px 16px' }}>
+                <LogOut size={18} />
+                Log Out
+              </button>
+            </div>
+          ) : (
+            <>
+              <Link to="/login" style={{ textDecoration: 'none' }}>
+                <button className="neu-btn">
+                  <LogIn size={18} />
+                  Log In
+                </button>
+              </Link>
+              <Link to="/signup" style={{ textDecoration: 'none' }}>
+                <button className="neu-btn-primary">
+                  <UserPlus size={18} />
+                  Sign Up
+                </button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>
@@ -64,8 +81,9 @@ function Navbar() {
 
 function App() {
   return (
-    <Router>
-      <UploadProvider>
+    <AuthProvider>
+      <Router>
+        <UploadProvider>
         <Navbar />
         <main className="container" style={{ paddingBottom: '100px' }}>
           <Routes>
@@ -79,6 +97,7 @@ function App() {
         </main>
       </UploadProvider>
     </Router>
+    </AuthProvider>
   );
 }
 

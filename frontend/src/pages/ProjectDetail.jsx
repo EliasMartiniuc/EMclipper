@@ -1,39 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Download, Edit3, Star, Clock, Loader2 } from 'lucide-react';
-import { getVideoData } from '../UploadContext';
+import { supabase } from '../supabase';
 
-const ClipCard = ({ clip, videoId }) => {
-  const [videoUrl, setVideoUrl] = useState('');
-
-  useEffect(() => {
-    const loadVideo = async () => {
-      if (clip.clipId) {
-        const base64Data = await getVideoData(clip.clipId);
-        if (base64Data) {
-          try {
-            const byteString = atob(base64Data);
-            const ab = new ArrayBuffer(byteString.length);
-            const ia = new Uint8Array(ab);
-            for (let i = 0; i < byteString.length; i++) {
-              ia[i] = byteString.charCodeAt(i);
-            }
-            const blob = new Blob([ab], { type: 'video/mp4' });
-            setVideoUrl(URL.createObjectURL(blob));
-            return;
-          } catch (e) {
-            console.error('Failed to create Blob from base64:', e);
-          }
-        }
-      }
-      
-      // Fallback
-      if (clip.filename) {
-        setVideoUrl(`/outputs/${videoId}/${clip.filename}`);
-      }
-    };
-    loadVideo();
-  }, [clip, videoId]);
+const ClipCard = ({ clip }) => {
+  const videoUrl = clip.video_url;
 
   return (
     <div className="neu-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column' }}>
@@ -56,7 +27,7 @@ const ClipCard = ({ clip, videoId }) => {
       </div>
 
       <div style={{ display: 'flex', gap: '12px' }}>
-        <a href={videoUrl} download={clip.filename} style={{ flex: 1, textDecoration: 'none' }}>
+        <a href={videoUrl} download={clip.filename} style={{ flex: 1, textDecoration: 'none' }} target="_blank" rel="noreferrer">
           <button className="neu-btn-primary" style={{ width: '100%', padding: '12px' }}>
             <Download size={18} /> Download
           </button>
@@ -71,16 +42,28 @@ export default function ProjectDetail() {
   const [project, setProject] = useState(null);
 
   useEffect(() => {
-    const loadProject = () => {
-      const saved = JSON.parse(localStorage.getItem('projects') || '[]');
-      const found = saved.find(p => p.id === videoId);
-      setProject(found);
+    const loadProject = async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*, clips(*)')
+        .eq('id', videoId)
+        .single();
+        
+      if (error) {
+        console.error("Error loading project:", error);
+      } else {
+        // Sort clips by score descending
+        if (data.clips) {
+          data.clips.sort((a, b) => (b.score || 0) - (a.score || 0));
+        }
+        setProject(data);
+      }
     };
 
     loadProject();
     
-    window.addEventListener('local-storage-update', loadProject);
-    return () => window.removeEventListener('local-storage-update', loadProject);
+    window.addEventListener('db-update', loadProject);
+    return () => window.removeEventListener('db-update', loadProject);
   }, [videoId]);
 
   if (!project) {
@@ -99,7 +82,7 @@ export default function ProjectDetail() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '24px' }}>
         {project.clips && project.clips.length > 0 ? project.clips.map((clip, index) => (
-          <ClipCard key={index} clip={clip} videoId={videoId} />
+          <ClipCard key={clip.id || index} clip={clip} />
         )) : (
           <p>No clips generated for this video yet.</p>
         )}

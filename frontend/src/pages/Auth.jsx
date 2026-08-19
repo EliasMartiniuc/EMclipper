@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Mail, Lock, User, Loader2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../supabase';
 
 export default function Auth({ type }) {
   const isLogin = type === 'login';
@@ -10,12 +11,44 @@ export default function Auth({ type }) {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
 
-  const handleSubmit = (e) => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Developer Note: Plug in Firebase / Auth0 / NextAuth here.
-    // e.g. await signInWithEmailAndPassword(auth, email, password)
-    console.log(`Submitting ${type} form`, { name, email, password });
-    alert(`${isLogin ? 'Login' : 'Signup'} functionality mock triggered!`);
+    setLoading(true);
+    setError('');
+    setMessage('');
+
+    try {
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        navigate('/projects');
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: name,
+            }
+          }
+        });
+        if (error) throw error;
+        setMessage('Registration successful! You can now log in.');
+        navigate('/projects'); // usually auto logs in
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -27,6 +60,9 @@ export default function Auth({ type }) {
         <p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>
           {isLogin ? 'Log in to access your projects.' : 'Start turning your videos into viral shorts.'}
         </p>
+
+        {error && <div style={{ color: 'red', marginBottom: '16px', fontWeight: 'bold' }}>{error}</div>}
+        {message && <div style={{ color: 'green', marginBottom: '16px', fontWeight: 'bold' }}>{message}</div>}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
@@ -71,8 +107,8 @@ export default function Auth({ type }) {
             />
           </div>
 
-          <button type="submit" className="neu-btn-primary" style={{ marginTop: '12px', width: '100%', padding: '16px' }}>
-            {isLogin ? 'Log In' : 'Sign Up'}
+          <button type="submit" className="neu-btn-primary" style={{ marginTop: '12px', width: '100%', padding: '16px' }} disabled={loading}>
+            {loading ? <Loader2 className="spinner" size={18} /> : (isLogin ? 'Log In' : 'Sign Up')}
           </button>
 
         </form>
