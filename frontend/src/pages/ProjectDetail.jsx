@@ -6,6 +6,27 @@ import { supabase } from '../supabase';
 const ClipCard = ({ clip }) => {
   const videoUrl = clip.video_url;
 
+  const handleDownload = async (e) => {
+    e.preventDefault();
+    try {
+      // Fetching the file as a blob forces the browser to download instead of open it
+      const response = await fetch(videoUrl);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = clip.title ? `${clip.title}.mp4` : 'clip.mp4';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(blobUrl);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error("Download failed:", err);
+      // Fallback if fetch fails due to CORS
+      window.open(videoUrl, '_blank');
+    }
+  };
+
   return (
     <div className="neu-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column' }}>
       <div className="clip-preview">
@@ -27,11 +48,9 @@ const ClipCard = ({ clip }) => {
       </div>
 
       <div style={{ display: 'flex', gap: '12px' }}>
-        <a href={videoUrl} download={clip.filename} style={{ flex: 1, textDecoration: 'none' }} target="_blank" rel="noreferrer">
-          <button className="neu-btn-primary" style={{ width: '100%', padding: '12px' }}>
-            <Download size={18} /> Download
-          </button>
-        </a>
+        <button onClick={handleDownload} className="neu-btn-primary" style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <Download size={18} /> Download
+        </button>
       </div>
     </div>
   );

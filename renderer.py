@@ -78,6 +78,7 @@ def render_short(
         "-pix_fmt", "yuv420p",
         "-c:a", "aac",
         "-b:a", "128k",
+        "-af", "volume=0.4",
         "-max_muxing_queue_size", "1024"
     ])
 
