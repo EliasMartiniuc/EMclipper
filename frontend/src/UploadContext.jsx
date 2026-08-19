@@ -62,6 +62,9 @@ export function UploadProvider({ children }) {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
+    if (activeJobId) {
+      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/cancel/${activeJobId}`, { method: 'POST' }).catch(() => {});
+    }
     setIsProcessing(false);
     setActiveJobId(null);
     setHasClips(false);

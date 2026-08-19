@@ -44,6 +44,9 @@ from config import (
     R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT_URL, R2_BUCKET_NAME, R2_PUBLIC_URL
 )
 
+# Global dictionary to track active jobs for cancellation
+active_jobs = {}
+
 # Initialize Cloudflare R2 Client
 s3_client = boto3.client(
     "s3",
@@ -487,6 +490,7 @@ async def process_stream(
         job_id = str(uuid.uuid4())
         
     job = Job(job_id, url if url else None, subtitles_enabled)
+    active_jobs[job_id] = job
     
     if not url and job_id and filename:
         # Check if the chunked file exists
@@ -577,9 +581,41 @@ async def process_stream(
             # raise an exception internally at the next `check_cancelled()` or die
             # because its subprocesses were killed.
             raise
+        finally:
+            active_jobs.pop(job_id, None)
 
     return EventSourceResponse(event_generator())
 
+
+@app.post("/api/cancel/{job_id}")
+async def cancel_job(job_id: str):
+    """Explicitly cancel a job and kill its processes."""
+    job = active_jobs.get(job_id)
+    if job:
+        job.cancelled = True
+        for proc in job.active_subprocesses:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+        active_jobs.pop(job_id, None)
+        return {"status": "cancelled"}
+    return {"status": "not_found"}
+
+@app.delete("/api/project/{project_id}")
+async def delete_project_files(project_id: str):
+    """Delete all files associated with a project from Cloudflare R2."""
+    prefix = f"jobs/{project_id}/"
+    try:
+        paginator = s3_client.get_paginator('list_objects_v2')
+        for page in paginator.paginate(Bucket=R2_BUCKET_NAME, Prefix=prefix):
+            if 'Contents' in page:
+                objects_to_delete = [{'Key': obj['Key']} for obj in page['Contents']]
+                s3_client.delete_objects(Bucket=R2_BUCKET_NAME, Delete={'Objects': objects_to_delete})
+        return {"status": "deleted"}
+    except Exception as e:
+        logger.error(f"Error deleting files for project {project_id}: {e}")
+        return {"status": "error"}
 
 @app.get("/api/debug/info")
 async def debug_info():
