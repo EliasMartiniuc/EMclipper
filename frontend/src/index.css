@@ -261,15 +261,41 @@ h1, h2, h3, h4 {
   overflow: hidden;
 }
 
+/* --- Mobile Navigation Styles --- */
+.mobile-menu-btn {
+  display: none; /* Hidden on desktop */
+}
+
+.mobile-menu {
+  display: none;
+}
+
 /* Responsive Overrides */
 @media (max-width: 768px) {
-  .nav-container {
-    flex-direction: column;
-    justify-content: center;
+  .desktop-only {
+    display: none !important;
   }
-  .nav-links, .nav-auth {
+  
+  .mobile-menu-btn {
+    display: flex;
+    align-items: center;
     justify-content: center;
-    width: 100%;
+    padding: 10px;
+  }
+
+  .mobile-menu {
+    display: flex;
+    position: absolute;
+    top: 80px; /* Below navbar */
+    left: 20px;
+    right: 20px;
+    z-index: 1000;
+    padding: 24px;
+    animation: slideDown 0.3s ease-out;
+  }
+
+  .nav-container {
+    justify-content: space-between;
   }
   .home-title {
     font-size: 2.25rem !important;
@@ -286,4 +312,9 @@ h1, h2, h3, h4 {
   .clip-preview {
     height: 300px !important;
   }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
