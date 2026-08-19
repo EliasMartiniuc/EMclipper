@@ -154,6 +154,18 @@ def process_video_stateless(job: Job):
         """Check if the job was cancelled and raise if so."""
         if job.cancelled:
             raise RuntimeError("Job cancelled by user")
+            
+        # Check distributed state in R2 (in case cancel hit a different Cloud Run instance)
+        if s3_client:
+            try:
+                s3_client.head_object(Bucket=R2_BUCKET_NAME, Key=f"jobs/{job_id}/CANCELLED")
+                job.cancelled = True
+                raise RuntimeError("Job cancelled by user (detected via R2)")
+            except Exception as e:
+                # If the file doesn't exist, head_object throws ClientError (404 Not Found)
+                if getattr(e, 'response', {}).get('Error', {}).get('Code') != '404':
+                    pass # Ignore other S3 errors so we don't break the pipeline randomly
+
 
     try:
         check_cancelled()
@@ -590,6 +602,7 @@ async def process_stream(
 @app.post("/api/cancel/{job_id}")
 async def cancel_job(job_id: str):
     """Explicitly cancel a job and kill its processes."""
+    # 1. Cancel locally if the job is on this instance
     job = active_jobs.get(job_id)
     if job:
         job.cancelled = True
@@ -599,8 +612,19 @@ async def cancel_job(job_id: str):
             except Exception:
                 pass
         active_jobs.pop(job_id, None)
-        return {"status": "cancelled"}
-    return {"status": "not_found"}
+        
+    # 2. Write a CANCELLED marker to R2 so other instances know it's cancelled
+    try:
+        if s3_client:
+            s3_client.put_object(
+                Bucket=R2_BUCKET_NAME,
+                Key=f"jobs/{job_id}/CANCELLED",
+                Body=b""
+            )
+    except Exception as e:
+        logger.error(f"Failed to write CANCELLED marker to R2: {e}")
+
+    return {"status": "cancelled"}
 
 @app.delete("/api/project/{project_id}")
 async def delete_project_files(project_id: str):
