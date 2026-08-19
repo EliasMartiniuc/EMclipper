@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, Loader2, CheckCircle, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 
@@ -10,17 +10,16 @@ export default function Auth({ type }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
 
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    setMessage('');
 
     try {
       if (isLogin) {
@@ -41,8 +40,7 @@ export default function Auth({ type }) {
           }
         });
         if (error) throw error;
-        setMessage('Registration successful! You can now log in.');
-        navigate('/projects'); // usually auto logs in
+        setShowVerifyModal(true);
       }
     } catch (err) {
       setError(err.message);
@@ -62,7 +60,6 @@ export default function Auth({ type }) {
         </p>
 
         {error && <div style={{ color: 'red', marginBottom: '16px', fontWeight: 'bold' }}>{error}</div>}
-        {message && <div style={{ color: 'green', marginBottom: '16px', fontWeight: 'bold' }}>{message}</div>}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
@@ -120,6 +117,74 @@ export default function Auth({ type }) {
           </Link>
         </div>
       </div>
+
+      {/* Verification Email Modal */}
+      {showVerifyModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: 'fadeIn 0.3s ease'
+        }}>
+          <div className="neu-card" style={{
+            maxWidth: '420px', width: '90%', textAlign: 'center',
+            padding: '40px 32px', position: 'relative',
+            animation: 'slideUp 0.4s ease'
+          }}>
+            <button
+              onClick={() => { setShowVerifyModal(false); navigate('/login'); }}
+              style={{
+                position: 'absolute', top: '16px', right: '16px',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text-muted)', padding: '4px'
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            <div style={{
+              width: '64px', height: '64px', borderRadius: '50%',
+              background: 'linear-gradient(135deg, #00c853, #00e676)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 24px'
+            }}>
+              <CheckCircle size={32} color="#fff" />
+            </div>
+
+            <h3 style={{ fontSize: '1.5rem', marginBottom: '12px', color: 'var(--text-primary)' }}>
+              Check Your Email
+            </h3>
+            <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '8px' }}>
+              We've sent a verification link to
+            </p>
+            <p style={{ color: 'var(--accent-color)', fontWeight: 'bold', marginBottom: '24px', wordBreak: 'break-all' }}>
+              {email}
+            </p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+              Click the link in the email to verify your account, then come back here to log in.
+            </p>
+
+            <button
+              className="neu-btn-primary"
+              onClick={() => { setShowVerifyModal(false); navigate('/login'); }}
+              style={{ marginTop: '28px', width: '100%', padding: '14px' }}
+            >
+              Go to Login
+            </button>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
