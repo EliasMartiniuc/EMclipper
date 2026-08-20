@@ -25,15 +25,13 @@ function Navbar() {
   return (
     <nav style={{ 
       padding: '16px 0', 
-      position: 'fixed', 
+      marginBottom: '40px', 
+      position: 'sticky', 
       top: 0, 
-      left: 0, 
-      right: 0, 
-      zIndex: 50,
-      backgroundColor: 'rgba(247, 247, 250, 0.85)',
-      backdropFilter: 'blur(12px)',
-      boxShadow: '0 4px 24px rgba(196, 201, 211, 0.2)',
-      borderBottom: '1px solid rgba(255, 255, 255, 0.5)'
+      zIndex: 100,
+      background: 'rgba(247, 247, 250, 0.75)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)'
     }}>
       <div className="container nav-container">
           <Link to="/" style={{ textDecoration: 'none', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -154,7 +152,7 @@ function App() {
       <Router>
         <UploadProvider>
         <Navbar />
-        <main className="container" style={{ paddingBottom: '100px', paddingTop: '130px' }}>
+        <main className="container" style={{ paddingBottom: '100px' }}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/projects" element={<Projects />} />
