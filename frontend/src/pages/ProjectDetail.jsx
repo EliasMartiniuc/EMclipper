@@ -96,7 +96,57 @@ export default function ProjectDetail() {
           <ArrowLeft size={16} /> Back to Projects
         </Link>
         <h1 className="kinetic-text" style={{ fontSize: '2.5rem', marginBottom: '8px' }}>{project.title} - Generated Clips</h1>
-        <p style={{ color: 'var(--text-muted)' }}>Project ID: {videoId}</p>
+        <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <span>Project ID: {videoId}</span>
+          
+          {(() => {
+            const expiresAt = new Date(new Date(project.created_at).getTime() + 7 * 24 * 60 * 60 * 1000);
+            const now = new Date();
+            const diffMs = expiresAt - now;
+            
+            if (diffMs <= 0) {
+              return (
+                <span style={{
+                  background: 'rgba(255, 59, 48, 0.1)',
+                  color: 'rgb(255, 59, 48)',
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                }}>
+                  Expired
+                </span>
+              );
+            }
+            
+            const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            const hours = Math.floor(diffMs / (1000 * 60 * 60));
+            const minutes = Math.floor(diffMs / (1000 * 60));
+            
+            let countdownText = "";
+            if (days > 0) {
+              countdownText = `${days} day${days > 1 ? 's' : ''} left before deletion`;
+            } else if (hours > 0) {
+              countdownText = `${hours} hour${hours > 1 ? 's' : ''} left before deletion`;
+            } else {
+              countdownText = `${minutes} min${minutes > 1 ? 's' : ''} left before deletion`;
+            }
+            
+            return (
+              <span style={{
+                background: 'rgba(255, 59, 48, 0.9)',
+                color: 'white',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                boxShadow: '0 2px 8px rgba(255, 59, 48, 0.4)'
+              }}>
+                {countdownText}
+              </span>
+            );
+          })()}
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '24px' }}>

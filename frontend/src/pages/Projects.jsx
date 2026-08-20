@@ -79,9 +79,31 @@ export default function Projects() {
           <div style={{ padding: '40px', textAlign: 'center', gridColumn: '1 / -1', color: 'var(--text-muted)' }}>
             {user ? "No projects found. Start by generating some clips!" : "Log in to see your projects."}
           </div>
-        ) : projects.map(proj => {
+        ) : projects.filter(proj => {
+          // Filter out expired projects
+          const expiresAt = new Date(new Date(proj.created_at).getTime() + 7 * 24 * 60 * 60 * 1000);
+          return expiresAt > new Date();
+        }).map(proj => {
           // Find the first available video URL to use as thumbnail
           const thumbnailVideo = proj.clips && proj.clips.find(c => c.video_url)?.video_url;
+          
+          // Calculate countdown
+          const expiresAt = new Date(new Date(proj.created_at).getTime() + 7 * 24 * 60 * 60 * 1000);
+          const now = new Date();
+          const diffMs = expiresAt - now;
+          let countdownText = "";
+          
+          const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          const hours = Math.floor(diffMs / (1000 * 60 * 60));
+          const minutes = Math.floor(diffMs / (1000 * 60));
+          
+          if (days > 0) {
+            countdownText = `${days} day${days > 1 ? 's' : ''} left`;
+          } else if (hours > 0) {
+            countdownText = `${hours} hour${hours > 1 ? 's' : ''} left`;
+          } else {
+            countdownText = `${minutes} min${minutes > 1 ? 's' : ''} left`;
+          }
           
           return (
           <Link key={proj.id} to={`/projects/${proj.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -116,6 +138,22 @@ export default function Projects() {
                 overflow: 'hidden',
                 position: 'relative'
               }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '8px',
+                  left: '8px',
+                  background: 'rgba(255, 59, 48, 0.9)',
+                  color: 'white',
+                  padding: '4px 10px',
+                  borderRadius: '20px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  zIndex: 10,
+                  backdropFilter: 'blur(4px)',
+                  boxShadow: '0 2px 8px rgba(255, 59, 48, 0.4)'
+                }}>
+                  {countdownText}
+                </div>
                 {thumbnailVideo ? (
                   <video 
                     src={`${thumbnailVideo}#t=0.5`} 
@@ -131,7 +169,7 @@ export default function Projects() {
               <h3 style={{ fontSize: '1.25rem', marginBottom: '8px' }}>{proj.title}</h3>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} /> {new Date(proj.created_at).toLocaleDateString()}</span>
-                <span>{proj.clips ? proj.clips.length : 0} Clips Generated</span>
+                <span>{proj.clips ? proj.clips.length : 0} Clips</span>
               </div>
             </div>
           </Link>
