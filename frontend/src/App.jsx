@@ -29,9 +29,7 @@ function Navbar() {
       position: 'sticky', 
       top: 0, 
       zIndex: 100,
-      background: 'rgba(247, 247, 250, 0.75)',
-      backdropFilter: 'blur(16px)',
-      WebkitBackdropFilter: 'blur(16px)'
+      background: 'transparent'
     }}>
       <div className="container nav-container">
           <Link to="/" style={{ textDecoration: 'none', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
