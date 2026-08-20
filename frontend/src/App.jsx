@@ -23,7 +23,18 @@ function Navbar() {
   ];
 
   return (
-    <nav style={{ padding: '24px 0', marginBottom: '40px', position: 'relative' }}>
+    <nav style={{ 
+      padding: '16px 0', 
+      position: 'fixed', 
+      top: 0, 
+      left: 0, 
+      right: 0, 
+      zIndex: 50,
+      backgroundColor: 'rgba(247, 247, 250, 0.85)',
+      backdropFilter: 'blur(12px)',
+      boxShadow: '0 4px 24px rgba(196, 201, 211, 0.2)',
+      borderBottom: '1px solid rgba(255, 255, 255, 0.5)'
+    }}>
       <div className="container nav-container">
           <Link to="/" style={{ textDecoration: 'none', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div className="neu-box" style={{ padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -143,7 +154,7 @@ function App() {
       <Router>
         <UploadProvider>
         <Navbar />
-        <main className="container" style={{ paddingBottom: '100px' }}>
+        <main className="container" style={{ paddingBottom: '100px', paddingTop: '130px' }}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/projects" element={<Projects />} />
