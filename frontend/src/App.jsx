@@ -25,14 +25,12 @@ function Navbar() {
   return (
     <nav style={{ padding: '24px 0', marginBottom: '40px', position: 'relative' }}>
       <div className="container nav-container">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div className="neu-box" style={{ padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img src="/logo.png" alt="EMclipper Logo" style={{ width: '72px', height: '72px', borderRadius: '16px', objectFit: 'cover' }} />
-          </div>
-          <Link to="/" style={{ textDecoration: 'none', color: 'var(--text-primary)' }}>
+          <Link to="/" style={{ textDecoration: 'none', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className="neu-box" style={{ padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src="/logo.png" alt="EMclipper Logo" style={{ width: '72px', height: '72px', borderRadius: '16px', objectFit: 'cover' }} />
+            </div>
             <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>EMclipper</h2>
           </Link>
-        </div>
 
         {/* Desktop Links */}
         <div className="nav-links desktop-only">
