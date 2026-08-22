@@ -29,7 +29,9 @@ function Navbar() {
       position: 'sticky', 
       top: 0, 
       zIndex: 100,
-      background: 'transparent'
+      background: 'rgba(247, 247, 250, 0.75)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)'
     }}>
       <div className="container nav-container">
           <Link to="/" style={{ textDecoration: 'none', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -156,6 +158,7 @@ function App() {
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:videoId" element={<ProjectDetail />} />
             <Route path="/subscription" element={<Subscription />} />
+            <Route path="/subscription/success" element={<SubscriptionSuccess />} />
             <Route path="/login" element={<Auth type="login" />} />
             <Route path="/signup" element={<Auth type="signup" />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
