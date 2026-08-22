@@ -7,7 +7,7 @@ import ProjectDetail from './pages/ProjectDetail';
 import Subscription from './pages/Subscription';
 import Auth from './pages/Auth';
 import AuthCallback from './pages/AuthCallback';
-import { UploadProvider } from './UploadContext';
+import { UploadProvider, useUpload } from './UploadContext';
 import { AuthProvider, useAuth } from './AuthContext';
 import { LogOut, Menu, X } from 'lucide-react';
 
