@@ -684,19 +684,23 @@ def _get_or_create_subscription(user_id: str, email: str = "") -> dict:
     if not supabase_admin:
         return {'tier': 'free', 'uploads_used': 0}
     
-    result = supabase_admin.table('user_subscriptions').select('*').eq('user_id', user_id).execute()
-    
-    if result.data and len(result.data) > 0:
-        return result.data[0]
-    
-    # Create a new free subscription row
-    new_sub = {
-        'user_id': user_id,
-        'tier': 'free',
-        'uploads_used': 0,
-    }
-    insert_result = supabase_admin.table('user_subscriptions').insert(new_sub).execute()
-    return insert_result.data[0] if insert_result.data else new_sub
+    try:
+        result = supabase_admin.table('user_subscriptions').select('*').eq('user_id', user_id).execute()
+        
+        if result.data and len(result.data) > 0:
+            return result.data[0]
+        
+        # Create a new free subscription row
+        new_sub = {
+            'user_id': user_id,
+            'tier': 'free',
+            'uploads_used': 0,
+        }
+        insert_result = supabase_admin.table('user_subscriptions').insert(new_sub).execute()
+        return insert_result.data[0] if insert_result.data else new_sub
+    except Exception as e:
+        logger.error(f"Error accessing user_subscriptions table (did you run supabase_schema.sql?): {e}")
+        return {'tier': 'free', 'uploads_used': 0}
 
 
 @app.get("/api/subscription-status")
