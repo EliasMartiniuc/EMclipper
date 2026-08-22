@@ -6,5 +6,6 @@ __pycache__/
 .env
 .env.*
 !.env.example
-frontend/.env*
+frontend/.env
+!frontend/.env.production
 cookies.txt
