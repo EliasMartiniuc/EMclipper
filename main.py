@@ -900,60 +900,64 @@ async def stripe_webhook(request: Request):
     
     logger.info(f"[Stripe] Received event: {event_type}")
     
-    if event_type == 'checkout.session.completed':
-        # A new subscription was created
-        customer_id = data.get('customer')
-        subscription_id = data.get('subscription')
-        user_id = data.get('metadata', {}).get('supabase_user_id')
-        plan = data.get('metadata', {}).get('plan', 'pro')
-        
-        if user_id and subscription_id:
-            # Fetch subscription details from Stripe to get billing period
-            stripe_sub = stripe.Subscription.retrieve(subscription_id)
-            period_start = datetime.fromtimestamp(stripe_sub['current_period_start']).isoformat()
-            period_end = datetime.fromtimestamp(stripe_sub['current_period_end']).isoformat()
+    try:
+        if event_type == 'checkout.session.completed':
+            # A new subscription was created
+            customer_id = data.get('customer')
+            subscription_id = data.get('subscription')
+            user_id = data.get('metadata', {}).get('supabase_user_id')
+            plan = data.get('metadata', {}).get('plan', 'pro')
             
-            supabase_admin.table('user_subscriptions').update({
-                'tier': plan,
-                'stripe_customer_id': customer_id,
-                'stripe_subscription_id': subscription_id,
-                'uploads_used': 0,
-                'period_start': period_start,
-                'period_end': period_end,
-            }).eq('user_id', user_id).execute()
-            logger.info(f"[Stripe] User {user_id} upgraded to {plan}")
-    
-    elif event_type == 'invoice.paid':
-        # Subscription renewed — reset upload counter
-        subscription_id = data.get('subscription')
-        if subscription_id:
-            stripe_sub = stripe.Subscription.retrieve(subscription_id)
-            period_start = datetime.fromtimestamp(stripe_sub['current_period_start']).isoformat()
-            period_end = datetime.fromtimestamp(stripe_sub['current_period_end']).isoformat()
-            
-            result = supabase_admin.table('user_subscriptions').select('*').eq('stripe_subscription_id', subscription_id).execute()
-            if result.data:
+            if user_id and subscription_id:
+                # Fetch subscription details from Stripe to get billing period
+                stripe_sub = stripe.Subscription.retrieve(subscription_id)
+                period_start = datetime.fromtimestamp(stripe_sub['current_period_start']).isoformat()
+                period_end = datetime.fromtimestamp(stripe_sub['current_period_end']).isoformat()
+                
                 supabase_admin.table('user_subscriptions').update({
+                    'tier': plan,
+                    'stripe_customer_id': customer_id,
+                    'stripe_subscription_id': subscription_id,
                     'uploads_used': 0,
                     'period_start': period_start,
                     'period_end': period_end,
+                }).eq('user_id', user_id).execute()
+                logger.info(f"[Stripe] User {user_id} upgraded to {plan}")
+        
+        elif event_type == 'invoice.paid':
+            # Subscription renewed — reset upload counter
+            subscription_id = data.get('subscription')
+            if subscription_id:
+                stripe_sub = stripe.Subscription.retrieve(subscription_id)
+                period_start = datetime.fromtimestamp(stripe_sub['current_period_start']).isoformat()
+                period_end = datetime.fromtimestamp(stripe_sub['current_period_end']).isoformat()
+                
+                result = supabase_admin.table('user_subscriptions').select('*').eq('stripe_subscription_id', subscription_id).execute()
+                if result.data:
+                    supabase_admin.table('user_subscriptions').update({
+                        'uploads_used': 0,
+                        'period_start': period_start,
+                        'period_end': period_end,
+                    }).eq('stripe_subscription_id', subscription_id).execute()
+                    logger.info(f"[Stripe] Subscription {subscription_id} renewed, reset uploads")
+        
+        elif event_type in ('customer.subscription.deleted', 'customer.subscription.canceled'):
+            # Subscription cancelled — downgrade to free
+            subscription_id = data.get('id')
+            if subscription_id:
+                supabase_admin.table('user_subscriptions').update({
+                    'tier': 'free',
+                    'stripe_subscription_id': None,
+                    'uploads_used': 0,
+                    'period_start': None,
+                    'period_end': None,
                 }).eq('stripe_subscription_id', subscription_id).execute()
-                logger.info(f"[Stripe] Subscription {subscription_id} renewed, reset uploads")
-    
-    elif event_type in ('customer.subscription.deleted', 'customer.subscription.canceled'):
-        # Subscription cancelled — downgrade to free
-        subscription_id = data.get('id')
-        if subscription_id:
-            supabase_admin.table('user_subscriptions').update({
-                'tier': 'free',
-                'stripe_subscription_id': None,
-                'uploads_used': 0,
-                'period_start': None,
-                'period_end': None,
-            }).eq('stripe_subscription_id', subscription_id).execute()
-            logger.info(f"[Stripe] Subscription {subscription_id} cancelled, downgraded to free")
-    
-    return JSONResponse(content={'status': 'ok'})
+                logger.info(f"[Stripe] Subscription {subscription_id} cancelled, downgraded to free")
+        
+        return JSONResponse(content={'status': 'ok'})
+    except Exception as e:
+        logger.error(f"[Stripe Webhook] Error processing event {event_type}: {e}", exc_info=True)
+        return JSONResponse(content={'error': str(e), 'type': type(e).__name__}, status_code=500)
 
 
 @app.get("/api/debug/info")
