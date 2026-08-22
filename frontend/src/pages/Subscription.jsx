@@ -38,7 +38,12 @@ export default function Subscription() {
       });
       
       if (!res.ok) {
-        throw new Error(`Server error: ${res.status}`);
+        let errorMessage = `Server error: ${res.status}`;
+        try {
+          const errorData = await res.json();
+          if (errorData.detail) errorMessage = errorData.detail;
+        } catch (e) {}
+        throw new Error(errorMessage);
       }
       
       const data = await res.json();
@@ -47,7 +52,7 @@ export default function Subscription() {
       }
     } catch (err) {
       console.error("Checkout error:", err);
-      alert("Failed to start checkout. Please try again.");
+      alert(`Checkout failed: ${err.message}`);
     } finally {
       setLoading(null);
     }

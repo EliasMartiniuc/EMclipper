@@ -802,36 +802,46 @@ async def create_checkout_session(request: Request):
     
     price_id = STRIPE_PRO_PRICE_ID if plan == 'pro' else STRIPE_ULTRA_PRICE_ID
     
-    # Get or create Stripe customer
-    sub = _get_or_create_subscription(user.id, user.email)
-    customer_id = sub.get('stripe_customer_id')
-    
-    if not customer_id:
-        customer = stripe.Customer.create(
-            email=user.email,
-            metadata={'supabase_user_id': user.id}
+    try:
+        # Get or create Stripe customer
+        sub = _get_or_create_subscription(user.id, user.email)
+        customer_id = sub.get('stripe_customer_id')
+        
+        if not customer_id:
+            customer = stripe.Customer.create(
+                email=user.email,
+                metadata={'supabase_user_id': user.id}
+            )
+            customer_id = customer.id
+            try:
+                supabase_admin.table('user_subscriptions').update({
+                    'stripe_customer_id': customer_id
+                }).eq('user_id', user.id).execute()
+            except Exception as e:
+                logger.error(f"Failed to save stripe_customer_id to Supabase (check SUPABASE_KEY): {e}")
+        
+        # Determine the origin for success/cancel URLs
+        origin = request.headers.get('origin', request.headers.get('referer', 'https://emclipper.com'))
+        if origin.endswith('/'):
+            origin = origin[:-1]
+        
+        session = stripe.checkout.Session.create(
+            customer=customer_id,
+            payment_method_types=['card'],
+            line_items=[{'price': price_id, 'quantity': 1}],
+            mode='subscription',
+            success_url=f"{origin}/subscription?success=true",
+            cancel_url=f"{origin}/subscription?cancelled=true",
+            metadata={'supabase_user_id': user.id, 'plan': plan},
         )
-        customer_id = customer.id
-        supabase_admin.table('user_subscriptions').update({
-            'stripe_customer_id': customer_id
-        }).eq('user_id', user.id).execute()
-    
-    # Determine the origin for success/cancel URLs
-    origin = request.headers.get('origin', request.headers.get('referer', 'https://emclipper.com'))
-    if origin.endswith('/'):
-        origin = origin[:-1]
-    
-    session = stripe.checkout.Session.create(
-        customer=customer_id,
-        payment_method_types=['card'],
-        line_items=[{'price': price_id, 'quantity': 1}],
-        mode='subscription',
-        success_url=f"{origin}/subscription?success=true",
-        cancel_url=f"{origin}/subscription?cancelled=true",
-        metadata={'supabase_user_id': user.id, 'plan': plan},
-    )
-    
-    return {'checkout_url': session.url}
+        
+        return {'checkout_url': session.url}
+    except stripe.StripeError as e:
+        logger.error(f"Stripe Error: {e.user_message or str(e)}")
+        raise HTTPException(status_code=400, detail=f"Stripe configuration error: {e.user_message or str(e)}")
+    except Exception as e:
+        logger.error(f"Checkout Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Checkout failed: {str(e)}")
 
 
 @app.post("/api/stripe-webhook")
