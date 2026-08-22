@@ -898,6 +898,9 @@ async def stripe_webhook(request: Request):
     event_type = event['type']
     data = event['data']['object']
     
+    if hasattr(data, 'to_dict'):
+        data = data.to_dict()
+    
     logger.info(f"[Stripe] Received event: {event_type}")
     
     try:
