@@ -317,6 +317,9 @@ export function UploadProvider({ children }) {
                      setThumbnail(null);
                      navigate(`/projects/${jobId}`);
                   }, 1500);
+                } else if (eventType === 'error') {
+                  setError(`Processing failed: ${parsed.error || 'Unknown error'}`);
+                  setLogs(prev => [...prev, { level: 'error', message: `❌ Error: ${parsed.error}` }]);
                 }
               }
             } catch(e) {
