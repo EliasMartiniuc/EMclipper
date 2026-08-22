@@ -70,3 +70,17 @@ R2_PUBLIC_URL = os.getenv("R2_PUBLIC_URL", "")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+
+# ─── Stripe Payments ──────────────────────────────────────────────────────────
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID", "price_1U7ChQRYlk0ShiX9cHKG7mog")
+STRIPE_ULTRA_PRICE_ID = os.getenv("STRIPE_ULTRA_PRICE_ID", "price_1U7Cm3RYlk0ShiX9ytRSZ6Wj")
+
+# ─── Subscription Upload Limits (easily changeable) ──────────────────────────
+FREE_UPLOAD_LIMIT = int(os.getenv("FREE_UPLOAD_LIMIT", "2"))     # Total lifetime uploads for free users
+PRO_UPLOAD_LIMIT = int(os.getenv("PRO_UPLOAD_LIMIT", "26"))      # Per month
+ULTRA_UPLOAD_LIMIT = int(os.getenv("ULTRA_UPLOAD_LIMIT", "70"))  # Per month
+
+# ─── Admin Account (unlimited uploads, hidden from users) ────────────────────
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "martiniucelias087@gmail.com")

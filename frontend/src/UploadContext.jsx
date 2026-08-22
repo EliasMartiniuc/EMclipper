@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useRef, useMemo } from 'react';
+import React, { createContext, useContext, useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from './supabase';
 import { useAuth } from './AuthContext';
@@ -17,9 +17,37 @@ export function UploadProvider({ children }) {
   const [activeJobId, setActiveJobId] = useState(null);
   const [thumbnail, setThumbnail] = useState(null);
   const [hasClips, setHasClips] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const abortControllerRef = useRef(null);
   
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Fetch subscription status whenever user changes
+  const fetchSubscriptionStatus = useCallback(async () => {
+    if (!user) {
+      setSubscriptionStatus(null);
+      return;
+    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      
+      const res = await fetch(`${API}/api/subscription-status`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSubscriptionStatus(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch subscription status:", err);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchSubscriptionStatus();
+  }, [fetchSubscriptionStatus]);
 
   const generateThumbnail = (videoFile) => {
     const video = document.createElement('video');
@@ -29,13 +57,11 @@ export function UploadProvider({ children }) {
     video.playsInline = true;
     
     video.onloadedmetadata = () => {
-      // Seek to 1s or half the video if it's shorter than 1s
       video.currentTime = Math.min(1.0, video.duration / 2);
     };
     
     video.onseeked = () => {
       const canvas = document.createElement('canvas');
-      // 16:9 aspect ratio thumbnail
       canvas.width = 320;
       canvas.height = 180;
       const ctx = canvas.getContext('2d');
@@ -72,8 +98,6 @@ export function UploadProvider({ children }) {
     setLogs(prev => [...prev, { level: 'error', message: 'User stopped processing.' }]);
   };
 
-  const { user } = useAuth();
-
   const startProcessing = async () => {
     if (!file) {
       setError("Please select a video file.");
@@ -82,6 +106,30 @@ export function UploadProvider({ children }) {
     if (!user) {
       setError("You must be logged in to upload and save projects.");
       return;
+    }
+
+    // Check subscription limits before processing
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const res = await fetch(`${API}/api/subscription-status`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+        if (res.ok) {
+          const status = await res.json();
+          setSubscriptionStatus(status);
+          if (!status.can_upload) {
+            if (status.tier === 'free') {
+              setError(`You've used all ${status.upload_limit} free uploads. Upgrade to Pro or Ultra to continue!`);
+            } else {
+              setError(`You've reached your monthly limit of ${status.upload_limit} uploads. Your limit resets next billing cycle.`);
+            }
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to check subscription:", err);
     }
 
     setIsProcessing(true);
@@ -157,6 +205,20 @@ export function UploadProvider({ children }) {
         throw new Error("Database error while creating project.");
       }
 
+      // Increment upload counter
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await fetch(`${API}/api/increment-upload`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+          });
+          fetchSubscriptionStatus();
+        }
+      } catch (err) {
+        console.error("Failed to increment upload counter:", err);
+      }
+
       const formData = new FormData();
       formData.append('subtitles_enabled', 'true');
       formData.append('job_id', jobId);
@@ -220,7 +282,6 @@ export function UploadProvider({ children }) {
                 setHasClips(true);
                 const clipMeta = parsed.clip;
                 
-                // Save it to Supabase Database instantly!
                 const { error: clipError } = await supabase.from('clips').insert({
                   project_id: jobId,
                   user_id: user.id,
@@ -233,7 +294,6 @@ export function UploadProvider({ children }) {
                 if (clipError) {
                   console.error("Failed to save clip to DB:", clipError);
                 } else {
-                  // Fire a custom event so ProjectDetail can re-render if user is on that page
                   window.dispatchEvent(new Event('db-update'));
                 }
               }
@@ -253,14 +313,13 @@ export function UploadProvider({ children }) {
                   window.dispatchEvent(new Event('db-update'));
 
                   setTimeout(() => {
-                     setFile(null); // Clear selected file
+                     setFile(null);
                      setThumbnail(null);
                      navigate(`/projects/${jobId}`);
                   }, 1500);
                 }
               }
             } catch(e) {
-              // Not JSON or localStorage quota exceeded — ignore safely
               console.warn('SSE parse error:', e);
             }
           }
@@ -279,8 +338,9 @@ export function UploadProvider({ children }) {
   };
 
   const contextValue = useMemo(() => ({
-    file, handleFileChange, isProcessing, progress, progressText, speedText, logs, error, startProcessing, stopProcessing, activeJobId, hasClips
-  }), [file, isProcessing, progress, progressText, speedText, logs, error, activeJobId, hasClips]);
+    file, handleFileChange, isProcessing, progress, progressText, speedText, logs, error, 
+    startProcessing, stopProcessing, activeJobId, hasClips, subscriptionStatus, fetchSubscriptionStatus
+  }), [file, isProcessing, progress, progressText, speedText, logs, error, activeJobId, hasClips, subscriptionStatus, fetchSubscriptionStatus]);
 
   return (
     <UploadContext.Provider value={contextValue}>

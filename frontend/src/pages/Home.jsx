@@ -2,12 +2,15 @@ import React, { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Upload, XCircle, PlayCircle, Loader2 } from 'lucide-react';
 import { useUpload } from '../UploadContext';
+import { useAuth } from '../AuthContext';
 
 export default function Home() {
   const {
     file, handleFileChange, isProcessing, progress, progressText, 
-    speedText, logs, error, startProcessing, stopProcessing, activeJobId, hasClips
+    speedText, logs, error, startProcessing, stopProcessing, activeJobId, hasClips,
+    subscriptionStatus
   } = useUpload();
+  const { user } = useAuth();
   
   const logEndRef = useRef(null);
 
@@ -16,6 +19,11 @@ export default function Home() {
       logEndRef.current.parentElement.scrollTop = logEndRef.current.parentElement.scrollHeight;
     }
   }, [logs]);
+
+  const canUpload = !subscriptionStatus || subscriptionStatus.can_upload;
+  const remaining = subscriptionStatus?.uploads_remaining;
+  const tier = subscriptionStatus?.tier || 'free';
+  const isAdmin = subscriptionStatus?.is_admin;
 
   return (
     <div>
@@ -30,11 +38,48 @@ export default function Home() {
 
       <div style={{ display: 'flex', justifyContent: 'center' }}>
         <div className="neu-card" style={{ width: '100%', maxWidth: '600px', textAlign: 'center' }}>
+          
+          {/* Uploads remaining indicator */}
+          {user && subscriptionStatus && !isAdmin && (
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              marginBottom: '20px' 
+            }}>
+              <div style={{
+                background: canUpload ? 'rgba(138,122,237,0.1)' : 'rgba(255, 59, 48, 0.1)',
+                color: canUpload ? 'var(--accent-color)' : 'rgb(255, 59, 48)',
+                padding: '8px 20px',
+                borderRadius: '24px',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                {canUpload ? (
+                  <>
+                    <Upload size={16} />
+                    {remaining} upload{remaining !== 1 ? 's' : ''} remaining
+                    {tier !== 'free' && <span style={{ opacity: 0.6 }}>({tier})</span>}
+                  </>
+                ) : (
+                  <>
+                    No uploads remaining — 
+                    <Link to="/subscription" style={{ color: 'var(--accent-color)', textDecoration: 'underline', fontWeight: 700 }}>
+                      Upgrade now
+                    </Link>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           {error && <div style={{ color: 'red', marginBottom: '16px', fontWeight: 'bold' }}>{error}</div>}
           
           {!isProcessing ? (
             <>
-              <div className="upload-box">
+              <div className="upload-box" style={{ opacity: canUpload ? 1 : 0.5, pointerEvents: canUpload ? 'auto' : 'none' }}>
                 <Upload size={48} color="var(--accent-color)" style={{ marginBottom: '16px' }} />
                 <h3 style={{ marginBottom: '8px' }}>Drop your video file here</h3>
                 <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.875rem' }}>MP4, MOV, or WEBM up to unlimited size</p>
@@ -43,8 +88,9 @@ export default function Home() {
                   type="file" 
                   onChange={handleFileChange} 
                   accept="video/*"
+                  disabled={!canUpload}
                   style={{
-                    position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer'
+                    position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: canUpload ? 'pointer' : 'not-allowed'
                   }}
                 />
                 <button className="neu-btn" style={{ pointerEvents: 'none' }}>Choose File</button>
@@ -56,9 +102,22 @@ export default function Home() {
                 </div>
               )}
 
-              <button className="neu-btn-primary" onClick={startProcessing} style={{ width: '100%', padding: '16px', fontSize: '1.1rem' }}>
+              <button 
+                className="neu-btn-primary" 
+                onClick={startProcessing} 
+                disabled={!canUpload && !isAdmin}
+                style={{ width: '100%', padding: '16px', fontSize: '1.1rem', opacity: canUpload || isAdmin ? 1 : 0.5 }}
+              >
                 <PlayCircle size={24} /> Generate Clips
               </button>
+
+              {!canUpload && !isAdmin && (
+                <Link to="/subscription" style={{ textDecoration: 'none' }}>
+                  <button className="neu-btn-primary" style={{ width: '100%', padding: '16px', fontSize: '1.1rem', marginTop: '12px' }}>
+                    Upgrade to Pro
+                  </button>
+                </Link>
+              )}
             </>
           ) : (
             <div style={{ padding: '20px 0' }}>

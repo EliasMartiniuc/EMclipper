@@ -34,15 +34,26 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
+import stripe
 
 from schemas import JobRequest, JobStatus
 from config import (
     BASE_DIR, DOWNLOADS_DIR, OUTPUTS_DIR, TEMP_DIR,
-    R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT_URL, R2_BUCKET_NAME, R2_PUBLIC_URL
+    R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT_URL, R2_BUCKET_NAME, R2_PUBLIC_URL,
+    STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRO_PRICE_ID, STRIPE_ULTRA_PRICE_ID,
+    FREE_UPLOAD_LIMIT, PRO_UPLOAD_LIMIT, ULTRA_UPLOAD_LIMIT, ADMIN_EMAIL,
+    SUPABASE_URL, SUPABASE_KEY,
 )
+
+# Initialize Stripe
+stripe.api_key = STRIPE_SECRET_KEY
+
+# Initialize Supabase client for server-side operations
+from supabase import create_client
+supabase_admin = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 
 # Global dictionary to track active jobs for cancellation
 active_jobs = {}
@@ -651,6 +662,251 @@ async def delete_project_files(project_id: str):
     except Exception as e:
         logger.error(f"Error deleting files for project {project_id}: {e}")
         return {"status": "error"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STRIPE SUBSCRIPTION ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _get_upload_limit(tier: str) -> int:
+    """Return the upload limit for a given tier."""
+    limits = {
+        'free': FREE_UPLOAD_LIMIT,
+        'pro': PRO_UPLOAD_LIMIT,
+        'ultra': ULTRA_UPLOAD_LIMIT,
+    }
+    return limits.get(tier, FREE_UPLOAD_LIMIT)
+
+
+def _get_or_create_subscription(user_id: str, email: str = "") -> dict:
+    """Get or create a user_subscriptions row. Returns the row as a dict."""
+    if not supabase_admin:
+        return {'tier': 'free', 'uploads_used': 0}
+    
+    result = supabase_admin.table('user_subscriptions').select('*').eq('user_id', user_id).execute()
+    
+    if result.data and len(result.data) > 0:
+        return result.data[0]
+    
+    # Create a new free subscription row
+    new_sub = {
+        'user_id': user_id,
+        'tier': 'free',
+        'uploads_used': 0,
+    }
+    insert_result = supabase_admin.table('user_subscriptions').insert(new_sub).execute()
+    return insert_result.data[0] if insert_result.data else new_sub
+
+
+@app.get("/api/subscription-status")
+async def subscription_status(request: Request):
+    """Return the current user's subscription tier, uploads used, and uploads remaining."""
+    # Extract user from Supabase JWT in Authorization header
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = auth_header.split(' ')[1]
+    try:
+        user_response = supabase_admin.auth.get_user(token)
+        user = user_response.user
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
+    
+    # Admin bypass
+    if user.email == ADMIN_EMAIL:
+        return {
+            'tier': 'admin',
+            'uploads_used': 0,
+            'upload_limit': 999999,
+            'uploads_remaining': 999999,
+            'can_upload': True,
+            'is_admin': True,
+        }
+    
+    sub = _get_or_create_subscription(user.id, user.email)
+    tier = sub.get('tier', 'free')
+    uploads_used = sub.get('uploads_used', 0)
+    limit = _get_upload_limit(tier)
+    
+    # For pro/ultra, check if the billing period has expired and reset the counter
+    if tier in ('pro', 'ultra') and sub.get('period_end'):
+        from datetime import timezone
+        period_end = datetime.fromisoformat(sub['period_end'].replace('Z', '+00:00'))
+        if datetime.now(timezone.utc) > period_end:
+            # Period expired, reset counter
+            uploads_used = 0
+            supabase_admin.table('user_subscriptions').update({
+                'uploads_used': 0
+            }).eq('user_id', user.id).execute()
+    
+    return {
+        'tier': tier,
+        'uploads_used': uploads_used,
+        'upload_limit': limit,
+        'uploads_remaining': max(0, limit - uploads_used),
+        'can_upload': uploads_used < limit,
+        'is_admin': False,
+    }
+
+
+@app.post("/api/increment-upload")
+async def increment_upload(request: Request):
+    """Increment the upload counter for the current user. Called after successful processing."""
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = auth_header.split(' ')[1]
+    try:
+        user_response = supabase_admin.auth.get_user(token)
+        user = user_response.user
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    # Admin bypass
+    if user.email == ADMIN_EMAIL:
+        return {'status': 'ok', 'is_admin': True}
+    
+    sub = _get_or_create_subscription(user.id)
+    new_count = sub.get('uploads_used', 0) + 1
+    
+    supabase_admin.table('user_subscriptions').update({
+        'uploads_used': new_count
+    }).eq('user_id', user.id).execute()
+    
+    return {'status': 'ok', 'uploads_used': new_count}
+
+
+@app.post("/api/create-checkout-session")
+async def create_checkout_session(request: Request):
+    """Create a Stripe Checkout session for Pro or Ultra tier."""
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = auth_header.split(' ')[1]
+    try:
+        user_response = supabase_admin.auth.get_user(token)
+        user = user_response.user
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    body = await request.json()
+    plan = body.get('plan', 'pro')
+    
+    price_id = STRIPE_PRO_PRICE_ID if plan == 'pro' else STRIPE_ULTRA_PRICE_ID
+    
+    # Get or create Stripe customer
+    sub = _get_or_create_subscription(user.id, user.email)
+    customer_id = sub.get('stripe_customer_id')
+    
+    if not customer_id:
+        customer = stripe.Customer.create(
+            email=user.email,
+            metadata={'supabase_user_id': user.id}
+        )
+        customer_id = customer.id
+        supabase_admin.table('user_subscriptions').update({
+            'stripe_customer_id': customer_id
+        }).eq('user_id', user.id).execute()
+    
+    # Determine the origin for success/cancel URLs
+    origin = request.headers.get('origin', request.headers.get('referer', 'https://emclipper.com'))
+    if origin.endswith('/'):
+        origin = origin[:-1]
+    
+    session = stripe.checkout.Session.create(
+        customer=customer_id,
+        payment_method_types=['card'],
+        line_items=[{'price': price_id, 'quantity': 1}],
+        mode='subscription',
+        success_url=f"{origin}/subscription?success=true",
+        cancel_url=f"{origin}/subscription?cancelled=true",
+        metadata={'supabase_user_id': user.id, 'plan': plan},
+    )
+    
+    return {'checkout_url': session.url}
+
+
+@app.post("/api/stripe-webhook")
+async def stripe_webhook(request: Request):
+    """Handle Stripe webhook events for subscription lifecycle."""
+    payload = await request.body()
+    sig_header = request.headers.get('stripe-signature', '')
+    
+    try:
+        if STRIPE_WEBHOOK_SECRET:
+            event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+        else:
+            # No webhook secret configured, parse directly (less secure)
+            event = stripe.Event.construct_from(json.loads(payload), stripe.api_key)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.error.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+    
+    event_type = event['type']
+    data = event['data']['object']
+    
+    logger.info(f"[Stripe] Received event: {event_type}")
+    
+    if event_type == 'checkout.session.completed':
+        # A new subscription was created
+        customer_id = data.get('customer')
+        subscription_id = data.get('subscription')
+        user_id = data.get('metadata', {}).get('supabase_user_id')
+        plan = data.get('metadata', {}).get('plan', 'pro')
+        
+        if user_id and subscription_id:
+            # Fetch subscription details from Stripe to get billing period
+            stripe_sub = stripe.Subscription.retrieve(subscription_id)
+            period_start = datetime.fromtimestamp(stripe_sub['current_period_start']).isoformat()
+            period_end = datetime.fromtimestamp(stripe_sub['current_period_end']).isoformat()
+            
+            supabase_admin.table('user_subscriptions').update({
+                'tier': plan,
+                'stripe_customer_id': customer_id,
+                'stripe_subscription_id': subscription_id,
+                'uploads_used': 0,
+                'period_start': period_start,
+                'period_end': period_end,
+            }).eq('user_id', user_id).execute()
+            logger.info(f"[Stripe] User {user_id} upgraded to {plan}")
+    
+    elif event_type == 'invoice.paid':
+        # Subscription renewed — reset upload counter
+        subscription_id = data.get('subscription')
+        if subscription_id:
+            stripe_sub = stripe.Subscription.retrieve(subscription_id)
+            period_start = datetime.fromtimestamp(stripe_sub['current_period_start']).isoformat()
+            period_end = datetime.fromtimestamp(stripe_sub['current_period_end']).isoformat()
+            
+            result = supabase_admin.table('user_subscriptions').select('*').eq('stripe_subscription_id', subscription_id).execute()
+            if result.data:
+                supabase_admin.table('user_subscriptions').update({
+                    'uploads_used': 0,
+                    'period_start': period_start,
+                    'period_end': period_end,
+                }).eq('stripe_subscription_id', subscription_id).execute()
+                logger.info(f"[Stripe] Subscription {subscription_id} renewed, reset uploads")
+    
+    elif event_type in ('customer.subscription.deleted', 'customer.subscription.canceled'):
+        # Subscription cancelled — downgrade to free
+        subscription_id = data.get('id')
+        if subscription_id:
+            supabase_admin.table('user_subscriptions').update({
+                'tier': 'free',
+                'stripe_subscription_id': None,
+                'uploads_used': 0,
+                'period_start': None,
+                'period_end': None,
+            }).eq('stripe_subscription_id', subscription_id).execute()
+            logger.info(f"[Stripe] Subscription {subscription_id} cancelled, downgraded to free")
+    
+    return JSONResponse(content={'status': 'ok'})
+
 
 @app.get("/api/debug/info")
 async def debug_info():
