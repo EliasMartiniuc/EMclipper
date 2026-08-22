@@ -843,6 +843,41 @@ async def create_checkout_session(request: Request):
         raise HTTPException(status_code=500, detail=f"Checkout failed: {str(e)}")
 
 
+@app.post("/api/create-portal-session")
+async def create_portal_session(request: Request):
+    """Create a Stripe Customer Portal session for managing/canceling subscriptions."""
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = auth_header.split(' ')[1]
+    try:
+        user_response = supabase_admin.auth.get_user(token)
+        user = user_response.user
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    sub = _get_or_create_subscription(user.id, user.email)
+    customer_id = sub.get('stripe_customer_id')
+    
+    if not customer_id:
+        raise HTTPException(status_code=400, detail="No active subscription found.")
+        
+    origin = request.headers.get('origin', request.headers.get('referer', 'https://emclipper.com'))
+    if origin.endswith('/'):
+        origin = origin[:-1]
+        
+    try:
+        session = stripe.billing_portal.Session.create(
+            customer=customer_id,
+            return_url=f"{origin}/subscription",
+        )
+        return {'portal_url': session.url}
+    except Exception as e:
+        logger.error(f"Portal Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/stripe-webhook")
 async def stripe_webhook(request: Request):
     """Handle Stripe webhook events for subscription lifecycle."""
