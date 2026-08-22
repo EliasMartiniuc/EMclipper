@@ -14,6 +14,7 @@ import { LogOut, Menu, X } from 'lucide-react';
 function Navbar() {
   const location = useLocation();
   const { user, signOut } = useAuth();
+  const { subscriptionStatus } = useUpload();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
   const navLinks = [
@@ -60,8 +61,11 @@ function Navbar() {
         <div className="nav-auth desktop-only">
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {user.user_metadata?.full_name || user.email}
+                {subscriptionStatus?.is_admin && (
+                  <span style={{ background: 'var(--accent-color)', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 'bold' }}>ADMIN</span>
+                )}
               </span>
               <button onClick={signOut} className="neu-btn" style={{ padding: '8px 16px' }}>
                 <LogOut size={18} />
@@ -115,8 +119,11 @@ function Navbar() {
             
             {user ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', textAlign: 'center', padding: '8px' }}>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', textAlign: 'center', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                   {user.user_metadata?.full_name || user.email}
+                  {subscriptionStatus?.is_admin && (
+                    <span style={{ background: 'var(--accent-color)', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 'bold' }}>ADMIN</span>
+                  )}
                 </span>
                 <button onClick={() => { signOut(); setIsMobileMenuOpen(false); }} className="neu-btn" style={{ width: '100%', justifyContent: 'center' }}>
                   <LogOut size={18} />
