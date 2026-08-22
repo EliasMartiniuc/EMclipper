@@ -158,7 +158,6 @@ function App() {
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:videoId" element={<ProjectDetail />} />
             <Route path="/subscription" element={<Subscription />} />
-            <Route path="/subscription/success" element={<SubscriptionSuccess />} />
             <Route path="/login" element={<Auth type="login" />} />
             <Route path="/signup" element={<Auth type="signup" />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
