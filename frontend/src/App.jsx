@@ -8,6 +8,8 @@ import Subscription from './pages/Subscription';
 import Auth from './pages/Auth';
 import AuthCallback from './pages/AuthCallback';
 import Settings from './pages/Settings';
+import { UploadProvider, useUpload } from './UploadContext';
+import { AuthProvider, useAuth } from './AuthContext';
 import { LogOut, Menu, X, User, Settings as SettingsIcon } from 'lucide-react';
 
 function Navbar() {
