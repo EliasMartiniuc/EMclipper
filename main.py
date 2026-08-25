@@ -957,17 +957,17 @@ async def stripe_webhook(request: Request):
                     logger.info(f"[Stripe] Subscription {subscription_id} renewed, reset uploads")
         
         elif event_type in ('customer.subscription.deleted', 'customer.subscription.canceled'):
-            # Subscription cancelled — downgrade to free
+            # Subscription cancelled — downgrade to free and block uploads
             subscription_id = data.get('id')
             if subscription_id:
                 supabase_admin.table('user_subscriptions').update({
                     'tier': 'free',
                     'stripe_subscription_id': None,
-                    'uploads_used': 0,
+                    'uploads_used': FREE_UPLOAD_LIMIT,  # Max out free uploads so they can't upload
                     'period_start': None,
                     'period_end': None,
                 }).eq('stripe_subscription_id', subscription_id).execute()
-                logger.info(f"[Stripe] Subscription {subscription_id} cancelled, downgraded to free")
+                logger.info(f"[Stripe] Subscription {subscription_id} cancelled, downgraded to free (uploads blocked)")
         
         return JSONResponse(content={'status': 'ok'})
     except Exception as e:
