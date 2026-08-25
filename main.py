@@ -914,8 +914,10 @@ async def stripe_webhook(request: Request):
             if user_id and subscription_id:
                 # Fetch subscription details from Stripe to get billing period
                 stripe_sub = stripe.Subscription.retrieve(subscription_id)
-                period_start = datetime.fromtimestamp(stripe_sub['current_period_start']).isoformat()
-                period_end = datetime.fromtimestamp(stripe_sub['current_period_end']).isoformat()
+                if hasattr(stripe_sub, 'to_dict'):
+                    stripe_sub = stripe_sub.to_dict()
+                period_start = datetime.fromtimestamp(stripe_sub.get('current_period_start', 0)).isoformat()
+                period_end = datetime.fromtimestamp(stripe_sub.get('current_period_end', 0)).isoformat()
                 
                 supabase_admin.table('user_subscriptions').update({
                     'tier': plan,
@@ -932,8 +934,10 @@ async def stripe_webhook(request: Request):
             subscription_id = data.get('subscription')
             if subscription_id:
                 stripe_sub = stripe.Subscription.retrieve(subscription_id)
-                period_start = datetime.fromtimestamp(stripe_sub['current_period_start']).isoformat()
-                period_end = datetime.fromtimestamp(stripe_sub['current_period_end']).isoformat()
+                if hasattr(stripe_sub, 'to_dict'):
+                    stripe_sub = stripe_sub.to_dict()
+                period_start = datetime.fromtimestamp(stripe_sub.get('current_period_start', 0)).isoformat()
+                period_end = datetime.fromtimestamp(stripe_sub.get('current_period_end', 0)).isoformat()
                 
                 result = supabase_admin.table('user_subscriptions').select('*').eq('stripe_subscription_id', subscription_id).execute()
                 if result.data:
