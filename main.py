@@ -696,6 +696,8 @@ def _get_or_create_subscription(user_id: str, email: str = "") -> dict:
             'tier': 'free',
             'uploads_used': 0,
         }
+        if email:
+            new_sub['email'] = email
         insert_result = supabase_admin.table('user_subscriptions').insert(new_sub).execute()
         return insert_result.data[0] if insert_result.data else new_sub
     except Exception as e:
@@ -919,14 +921,20 @@ async def stripe_webhook(request: Request):
                 period_start = datetime.fromtimestamp(stripe_sub.get('current_period_start', 0)).isoformat()
                 period_end = datetime.fromtimestamp(stripe_sub.get('current_period_end', 0)).isoformat()
                 
-                supabase_admin.table('user_subscriptions').update({
+                # Also grab the customer email from Stripe for troubleshooting
+                customer_email = data.get('customer_details', {}).get('email', '') or data.get('customer_email', '')
+                
+                update_data = {
                     'tier': plan,
                     'stripe_customer_id': customer_id,
                     'stripe_subscription_id': subscription_id,
                     'uploads_used': 0,
                     'period_start': period_start,
                     'period_end': period_end,
-                }).eq('user_id', user_id).execute()
+                }
+                if customer_email:
+                    update_data['email'] = customer_email
+                supabase_admin.table('user_subscriptions').update(update_data).eq('user_id', user_id).execute()
                 logger.info(f"[Stripe] User {user_id} upgraded to {plan}")
         
         elif event_type == 'invoice.paid':
