@@ -7,15 +7,26 @@ import ProjectDetail from './pages/ProjectDetail';
 import Subscription from './pages/Subscription';
 import Auth from './pages/Auth';
 import AuthCallback from './pages/AuthCallback';
-import { UploadProvider, useUpload } from './UploadContext';
-import { AuthProvider, useAuth } from './AuthContext';
-import { LogOut, Menu, X } from 'lucide-react';
+import Settings from './pages/Settings';
+import { LogOut, Menu, X, User, Settings as SettingsIcon } from 'lucide-react';
 
 function Navbar() {
   const location = useLocation();
   const { user, signOut } = useAuth();
   const { subscriptionStatus } = useUpload();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = React.useState(false);
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.profile-dropdown-container')) {
+        setIsProfileDropdownOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const navLinks = [
     { path: '/', label: 'Home', icon: Video },
@@ -60,17 +71,49 @@ function Navbar() {
         {/* Desktop Auth */}
         <div className="nav-auth desktop-only">
           {user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {user.user_metadata?.full_name || user.email}
-                {subscriptionStatus?.is_admin && (
-                  <span style={{ background: 'var(--accent-color)', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 'bold' }}>ADMIN</span>
-                )}
-              </span>
-              <button onClick={signOut} className="neu-btn" style={{ padding: '8px 16px' }}>
-                <LogOut size={18} />
-                Log Out
+            <div className="profile-dropdown-container" style={{ position: 'relative' }}>
+              <button 
+                onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} 
+                className="neu-btn" 
+                style={{ padding: '8px 12px', borderRadius: '50%' }}
+                aria-label="User Profile"
+              >
+                <User size={20} />
               </button>
+
+              {isProfileDropdownOpen && (
+                <div className="neu-card profile-dropdown" style={{ 
+                  position: 'absolute', 
+                  top: '110%', 
+                  right: 0, 
+                  width: '220px', 
+                  padding: '12px',
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '8px',
+                  zIndex: 1000
+                }}>
+                  <Link to="/settings" style={{ textDecoration: 'none' }} onClick={() => setIsProfileDropdownOpen(false)}>
+                    <button className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
+                      <SettingsIcon size={16} />
+                      Settings
+                    </button>
+                  </Link>
+                  <button onClick={() => { signOut(); setIsProfileDropdownOpen(false); }} className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
+                    <LogOut size={16} />
+                    Log Out
+                  </button>
+                  
+                  <hr style={{ border: 'none', borderTop: '2px solid var(--shadow-dark)', margin: '4px 0' }} />
+                  
+                  <div style={{ padding: '8px 4px', fontSize: '0.85rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {user.user_metadata?.full_name || user.email}
+                    {subscriptionStatus?.is_admin && (
+                      <span style={{ marginLeft: '6px', background: 'var(--accent-color)', color: 'white', padding: '2px 6px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 'bold' }}>ADMIN</span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -119,16 +162,22 @@ function Navbar() {
             
             {user ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <Link to="/settings" style={{ textDecoration: 'none' }} onClick={() => setIsMobileMenuOpen(false)}>
+                  <button className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
+                    <SettingsIcon size={18} />
+                    Settings
+                  </button>
+                </Link>
+                <button onClick={() => { signOut(); setIsMobileMenuOpen(false); }} className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
+                  <LogOut size={18} />
+                  Log Out
+                </button>
                 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', textAlign: 'center', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                   {user.user_metadata?.full_name || user.email}
                   {subscriptionStatus?.is_admin && (
                     <span style={{ background: 'var(--accent-color)', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 'bold' }}>ADMIN</span>
                   )}
                 </span>
-                <button onClick={() => { signOut(); setIsMobileMenuOpen(false); }} className="neu-btn" style={{ width: '100%', justifyContent: 'center' }}>
-                  <LogOut size={18} />
-                  Log Out
-                </button>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -165,6 +214,7 @@ function App() {
             <Route path="/projects" element={<Projects />} />
             <Route path="/projects/:videoId" element={<ProjectDetail />} />
             <Route path="/subscription" element={<Subscription />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/login" element={<Auth type="login" />} />
             <Route path="/signup" element={<Auth type="signup" />} />
             <Route path="/auth/callback" element={<AuthCallback />} />

@@ -785,6 +785,61 @@ async def increment_upload(request: Request):
     return {'status': 'ok', 'uploads_used': new_count}
 
 
+@app.delete("/api/account")
+async def delete_account(request: Request):
+    """Delete the user's account, cancel their Stripe subscription, and remove all files from Cloudflare R2."""
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = auth_header.split(' ')[1]
+    try:
+        user_response = supabase_admin.auth.get_user(token)
+        user = user_response.user
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
+        
+    user_id = user.id
+    
+    # 1. Cancel Stripe Subscription if active
+    sub = _get_or_create_subscription(user_id, user.email)
+    stripe_sub_id = sub.get('stripe_subscription_id')
+    if stripe_sub_id:
+        try:
+            stripe.Subscription.delete(stripe_sub_id)
+            logger.info(f"Cancelled Stripe subscription {stripe_sub_id} for user {user_id}")
+        except Exception as e:
+            logger.error(f"Failed to cancel Stripe subscription for {user_id}: {e}")
+            
+    # 2. Delete all projects' videos from Cloudflare R2
+    if s3_client:
+        try:
+            projects_res = supabase_admin.table('projects').select('id').eq('user_id', user_id).execute()
+            if projects_res.data:
+                for proj in projects_res.data:
+                    project_id = proj['id']
+                    # List all objects with this prefix (folder)
+                    prefix = f"{project_id}/"
+                    paginator = s3_client.get_paginator('list_objects_v2')
+                    for page in paginator.paginate(Bucket=R2_BUCKET_NAME, Prefix=prefix):
+                        if 'Contents' in page:
+                            objects_to_delete = [{'Key': obj['Key']} for obj in page['Contents']]
+                            s3_client.delete_objects(Bucket=R2_BUCKET_NAME, Delete={'Objects': objects_to_delete})
+                            logger.info(f"Deleted {len(objects_to_delete)} objects for project {project_id} from R2")
+        except Exception as e:
+            logger.error(f"Failed to clean up R2 for user {user_id}: {e}")
+            
+    # 3. Delete user from Supabase Auth (cascades to user_subscriptions, projects, clips)
+    try:
+        supabase_admin.auth.admin.delete_user(user_id)
+        logger.info(f"Deleted user {user_id} from Supabase")
+    except Exception as e:
+        logger.error(f"Failed to delete user {user_id} from Supabase: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fully delete account")
+        
+    return {"status": "ok", "message": "Account deleted successfully"}
+
+
 @app.post("/api/create-checkout-session")
 async def create_checkout_session(request: Request):
     """Create a Stripe Checkout session for Pro or Ultra tier."""

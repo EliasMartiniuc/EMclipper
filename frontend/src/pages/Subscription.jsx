@@ -58,32 +58,6 @@ export default function Subscription() {
     }
   };
 
-  const handleManageSubscription = async () => {
-    setLoading('manage');
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch('/api/create-portal-session', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
-      
-      if (!res.ok) {
-        throw new Error('Failed to create portal session');
-      }
-      
-      const data = await res.json();
-      if (data.portal_url) {
-        window.location.href = data.portal_url;
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Could not open subscription manager. Please try again.');
-    } finally {
-      setLoading(null);
-    }
-  };
 
   const currentTier = subscriptionStatus?.tier || 'free';
   const uploadsUsed = subscriptionStatus?.uploads_used || 0;
@@ -234,20 +208,9 @@ export default function Subscription() {
               </ul>
 
               {isCurrent ? (
-                plan.tier === 'free' ? (
-                  <button className="neu-btn" style={{ width: '100%', opacity: 0.5 }} disabled>
-                    Current Plan
-                  </button>
-                ) : (
-                  <button 
-                    className="neu-btn-primary" 
-                    style={{ width: '100%' }}
-                    onClick={handleManageSubscription}
-                    disabled={loading !== null}
-                  >
-                    {loading === 'manage' ? 'Loading...' : 'Manage Subscription'}
-                  </button>
-                )
+                <button className="neu-btn" style={{ width: '100%', opacity: 0.5 }} disabled>
+                  Current Plan
+                </button>
               ) : plan.tier === 'free' ? (
                 <button className="neu-btn" style={{ width: '100%', opacity: 0.5 }} disabled>
                   Free Forever
