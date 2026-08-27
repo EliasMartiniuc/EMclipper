@@ -19,16 +19,39 @@ function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = React.useState(false);
 
-  // Close dropdown when clicking outside
+  const navigate = useNavigate();
+
+  // Close dropdowns when clicking outside
   React.useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest('.profile-dropdown-container')) {
         setIsProfileDropdownOpen(false);
       }
+      if (!event.target.closest('.mobile-menu') && !event.target.closest('.mobile-menu-btn')) {
+        setIsMobileMenuOpen(false);
+      }
     };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
+
+  const handleMobileNav = (path) => {
+    setTimeout(() => {
+      setIsMobileMenuOpen(false);
+      navigate(path);
+    }, 150);
+  };
+
+  const handleMobileAction = (action) => {
+    setTimeout(() => {
+      setIsMobileMenuOpen(false);
+      action();
+    }, 150);
+  };
 
   const navLinks = [
     { path: '/', label: 'Home', icon: Video },
@@ -158,16 +181,19 @@ function Navbar() {
       {/* Mobile Menu Dropdown */}
       {isMobileMenuOpen && (
         <div className="mobile-menu neu-card">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
             {navLinks.map(link => {
               const isActive = location.pathname === link.path || (link.path !== '/' && location.pathname.startsWith(link.path));
               return (
-                <Link key={link.path} to={link.path} style={{ textDecoration: 'none' }} onClick={() => setIsMobileMenuOpen(false)}>
-                  <button className={`neu-btn ${isActive ? 'active' : ''}`} style={{ width: '100%', justifyContent: 'flex-start' }}>
-                    <link.icon size={18} />
-                    {link.label}
-                  </button>
-                </Link>
+                <button 
+                  key={link.path} 
+                  onClick={() => handleMobileNav(link.path)} 
+                  className={`neu-btn ${isActive ? 'active' : ''}`} 
+                  style={{ width: '100%', justifyContent: 'flex-start' }}
+                >
+                  <link.icon size={18} />
+                  {link.label}
+                </button>
               );
             })}
             
@@ -175,13 +201,11 @@ function Navbar() {
             
             {user ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <Link to="/settings" style={{ textDecoration: 'none' }} onClick={() => setIsMobileMenuOpen(false)}>
-                  <button className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
-                    <SettingsIcon size={18} />
-                    Settings
-                  </button>
-                </Link>
-                <button onClick={() => { signOut(); setIsMobileMenuOpen(false); }} className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
+                <button onClick={() => handleMobileNav('/settings')} className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
+                  <SettingsIcon size={18} />
+                  Settings
+                </button>
+                <button onClick={() => handleMobileAction(signOut)} className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
                   <LogOut size={18} />
                   Log Out
                 </button>
@@ -194,18 +218,14 @@ function Navbar() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <Link to="/login" style={{ textDecoration: 'none' }} onClick={() => setIsMobileMenuOpen(false)}>
-                  <button className="neu-btn" style={{ width: '100%', justifyContent: 'center' }}>
-                    <LogIn size={18} />
-                    Log In
-                  </button>
-                </Link>
-                <Link to="/signup" style={{ textDecoration: 'none' }} onClick={() => setIsMobileMenuOpen(false)}>
-                  <button className="neu-btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
-                    <UserPlus size={18} />
-                    Sign Up
-                  </button>
-                </Link>
+                <button onClick={() => handleMobileNav('/login')} className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
+                  <LogIn size={18} />
+                  Log In
+                </button>
+                <button onClick={() => handleMobileNav('/signup')} className="neu-btn-primary" style={{ width: '100%', justifyContent: 'flex-start' }}>
+                  <UserPlus size={18} />
+                  Sign Up
+                </button>
               </div>
             )}
           </div>
