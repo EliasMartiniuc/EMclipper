@@ -8,8 +8,6 @@ import Subscription from './pages/Subscription';
 import Auth from './pages/Auth';
 import AuthCallback from './pages/AuthCallback';
 import Settings from './pages/Settings';
-import ForgotPassword from './pages/ForgotPassword';
-import UpdatePassword from './pages/UpdatePassword';
 import { UploadProvider, useUpload } from './UploadContext';
 import { AuthProvider, useAuth } from './AuthContext';
 import { LogOut, Menu, X, User, Settings as SettingsIcon } from 'lucide-react';
@@ -253,8 +251,6 @@ function App() {
             <Route path="/login" element={<Auth type="login" />} />
             <Route path="/signup" element={<Auth type="signup" />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/update-password" element={<UpdatePassword />} />
           </Routes>
         </main>
       </UploadProvider>
