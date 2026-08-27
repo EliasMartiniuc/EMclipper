@@ -324,51 +324,44 @@ function CookieBanner() {
 
 function Footer() {
   return (
-    <footer style={{
-      marginTop: 'auto',
-      padding: '48px 24px 32px',
-      background: 'rgba(0, 0, 0, 0.15)',
-      borderTop: '1px solid rgba(255,255,255,0.05)',
-      backdropFilter: 'blur(10px)',
+    <footer className="navbar-pill" style={{
+      margin: '0 auto 40px auto',
+      padding: '32px 24px',
+      background: 'rgba(247, 247, 250, 0.5)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+      borderRadius: '40px',
+      boxShadow: 'var(--neu-shadow)',
+      border: '1px solid rgba(255,255,255,0.4)',
+      width: '95%',
+      maxWidth: '1000px',
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      gap: '24px' 
     }}>
-      <div className="container" style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        gap: '32px' 
-      }}>
-        
-        {/* Logo/Brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            width: '36px', height: '36px', borderRadius: '10px',
-            background: 'linear-gradient(135deg, var(--accent-color), #b1a5ff)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 15px rgba(138, 122, 237, 0.4)'
-          }}>
-             <Video size={18} color="white" />
-          </div>
-          <span style={{ fontSize: '1.4rem', fontWeight: '800', letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
-            EMclipper
-          </span>
-        </div>
+      {/* Logo & Brand */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <img src="/logo.png" alt="EMclipper Logo" style={{ width: '32px', height: '32px' }} />
+        <span style={{ fontSize: '1.25rem', fontWeight: '800', letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
+          EMclipper
+        </span>
+      </div>
 
-        {/* Links */}
-        <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <Link to="/" className="footer-link">Home</Link>
-          <Link to="/subscription" className="footer-link">Pricing</Link>
-          <Link to="/terms" className="footer-link">Terms of Service</Link>
-          <Link to="/privacy" className="footer-link">Privacy Policy</Link>
-        </div>
+      {/* Links */}
+      <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <Link to="/" className="footer-link">Home</Link>
+        <Link to="/subscription" className="footer-link">Pricing</Link>
+        <Link to="/terms" className="footer-link">Terms of Service</Link>
+        <Link to="/privacy" className="footer-link">Privacy Policy</Link>
+      </div>
 
-        {/* Divider & Copyright */}
-        <div style={{ width: '100%', maxWidth: '600px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
-          <div style={{ width: '100%', height: '1px', background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)' }}></div>
-          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            &copy; {new Date().getFullYear()} EMclipper. All rights reserved.
-          </p>
-        </div>
-
+      {/* Divider & Copyright */}
+      <div style={{ width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+        <div style={{ width: '100%', height: '1px', background: 'linear-gradient(90deg, transparent, rgba(0,0,0,0.05), transparent)' }}></div>
+        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          &copy; {new Date().getFullYear()} EMclipper. All rights reserved.
+        </p>
       </div>
     </footer>
   );

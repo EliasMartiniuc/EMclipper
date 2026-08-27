@@ -10,7 +10,7 @@ export default function Privacy() {
         <section>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '12px' }}>1. Introduction</h2>
           <p>
-            EMclipper ("we", "our", or "us") respects your privacy and is committed to protecting your personal data. This Privacy Policy will inform you as to how we look after your personal data when you visit our website and tell you about your privacy rights and how the law protects you.
+            EMclipper respects your privacy and is committed to protecting your personal data. This Privacy Policy will inform you as to how we look after your personal data when you visit our website and tell you about your privacy rights and how the law protects you.
           </p>
         </section>
 
@@ -46,7 +46,9 @@ export default function Privacy() {
           <ul style={{ paddingLeft: '20px', marginTop: '8px' }}>
             <li><strong>Supabase:</strong> For secure database hosting and user authentication.</li>
             <li><strong>Stripe:</strong> For secure payment processing.</li>
-            <li><strong>OpenAI / AI Providers:</strong> For processing transcripts and generating intelligent video clips.</li>
+            <li><strong>Cloudflare:</strong> For secure website routing, CDN, and DDoS protection.</li>
+            <li><strong>Google Cloud Run:</strong> For secure, scalable backend server hosting.</li>
+            <li><strong>DeepSeek & Groq:</strong> For processing AI language models (highlight generation) and rapidly transcribing subtitles.</li>
             <li><strong>Google Analytics:</strong> For understanding website traffic and usage patterns (only if you accept analytics cookies).</li>
           </ul>
         </section>
@@ -70,7 +72,7 @@ export default function Privacy() {
             <li>Request access to your personal data.</li>
             <li>Request correction of your personal data.</li>
             <li>Request erasure of your personal data (You can completely delete your account and all associated data at any time via your Settings page).</li>
-            <li>Withdraw consent at any time.</li>
+            <li>Withdraw consent at any time (For example, declining tracking cookies or cancelling your account).</li>
           </ul>
         </section>
 
