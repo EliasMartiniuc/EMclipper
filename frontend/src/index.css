@@ -79,7 +79,7 @@ body::after {
 
 .neu-btn {
   background-color: var(--bg-color);
-  border: 1px solid rgba(0,0,0,0.03); /* Extremely subtle edge */
+  border: 1px solid rgba(0,0,0,0.03);
   border-radius: 16px;
   padding: 12px 24px;
   color: var(--text-primary);
@@ -91,13 +91,14 @@ body::after {
   justify-content: center;
   gap: 8px;
   box-shadow:
-    -3px -10px 15px #ffffff,
-    -3px -5px 8px #ffffff,
-    -10px 0px 15px #ffffff,
-    3px 10px 12px rgba(0, 0, 0, 0.15),
+    -2px -4px 10px #ffffff,
+    -5px 0px 10px #ffffff,
+    2px 5px 8px rgba(0, 0, 0, 0.12),
     inset 0px -4px 0px rgba(0,0,0,0.05),
     inset 0px 4px 6px #ffffff;
   transition: all 0.15s ease-out;
+  position: relative;
+  z-index: 1;
 }
 
 .neu-btn svg {
@@ -108,11 +109,11 @@ body::after {
 .neu-btn:hover {
   transform: scale(1.05);
   color: var(--accent-color);
+  z-index: 10;
   box-shadow:
-    -3px -15px 20px #ffffff,
-    -3px -10px 10px #ffffff,
-    -10px 0px 15px #ffffff,
-    5px 15px 15px rgba(0, 0, 0, 0.2),
+    -2px -6px 12px #ffffff,
+    -6px 0px 12px #ffffff,
+    3px 8px 10px rgba(0, 0, 0, 0.15),
     inset 0px -4px 0px rgba(0,0,0,0.05),
     inset 0px 4px 6px #ffffff;
 }
@@ -140,14 +141,15 @@ body::after {
   justify-content: center;
   gap: 8px;
   box-shadow:
-    -3px -10px 15px rgba(255,255,255,0.7),
-    -3px -5px 8px rgba(255,255,255,0.7),
-    -10px 0px 15px rgba(255,255,255,0.7),
-    3px 10px 12px rgba(0, 0, 0, 0.2),
+    -2px -4px 10px rgba(255,255,255,0.5),
+    -5px 0px 10px rgba(255,255,255,0.5),
+    2px 5px 8px rgba(0, 0, 0, 0.15),
     inset 0px -4px 0px rgba(0,0,0,0.15),
     inset 0px 4px 6px rgba(255,255,255,0.3);
   transition: all 0.15s ease-out;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 1;
 }
 
 .neu-btn-primary svg {
@@ -157,11 +159,11 @@ body::after {
 
 .neu-btn-primary:hover {
   transform: scale(1.05);
+  z-index: 10;
   box-shadow:
-    -3px -15px 20px rgba(255,255,255,0.8),
-    -3px -10px 10px rgba(255,255,255,0.8),
-    -10px 0px 15px rgba(255,255,255,0.8),
-    5px 15px 15px rgba(0, 0, 0, 0.3),
+    -2px -6px 12px rgba(255,255,255,0.6),
+    -6px 0px 12px rgba(255,255,255,0.6),
+    3px 8px 10px rgba(0, 0, 0, 0.2),
     inset 0px -4px 0px rgba(0,0,0,0.15),
     inset 0px 4px 6px rgba(255,255,255,0.3);
 }
@@ -295,11 +297,11 @@ h1, h2, h3, h4 {
 .upload-box:hover .neu-btn {
   transform: scale(1.05);
   color: var(--accent-color);
+  z-index: 10;
   box-shadow:
-    -3px -15px 20px #ffffff,
-    -3px -10px 10px #ffffff,
-    -10px 0px 15px #ffffff,
-    5px 15px 15px rgba(0, 0, 0, 0.2),
+    -2px -6px 12px #ffffff,
+    -6px 0px 12px #ffffff,
+    3px 8px 10px rgba(0, 0, 0, 0.15),
     inset 0px -4px 0px rgba(0,0,0,0.05),
     inset 0px 4px 6px #ffffff;
 }

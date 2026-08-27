@@ -43,7 +43,7 @@ function Navbar() {
       position: 'sticky', 
       top: 0, 
       zIndex: 100,
-      background: 'rgba(247, 247, 250, 0.75)',
+      background: 'rgba(247, 247, 250, 0.35)',
       backdropFilter: 'blur(16px)',
       WebkitBackdropFilter: 'blur(16px)'
     }}>
