@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Video, LayoutDashboard, CreditCard, LogIn, UserPlus } from 'lucide-react';
 import Home from './pages/Home';
 import Projects from './pages/Projects';
