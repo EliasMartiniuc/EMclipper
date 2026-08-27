@@ -264,15 +264,21 @@ function CookieBanner() {
   if (!show) return null;
 
   return (
-    <div style={{
-      position: 'fixed', bottom: 0, left: 0, right: 0,
-      background: 'var(--bg-card)', padding: '24px',
-      borderTop: '1px solid rgba(255,255,255,0.1)',
-      display: 'flex', flexDirection: 'column', gap: '16px',
-      alignItems: 'center', justifyContent: 'center',
+    <div className="navbar-pill" style={{
+      position: 'fixed', 
+      bottom: '24px', 
+      left: '50%', 
+      transform: 'translateX(-50%)',
+      padding: '20px 24px',
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: '16px',
+      alignItems: 'center', 
+      justifyContent: 'center',
       zIndex: 9999,
-      boxShadow: '0 -10px 30px rgba(0,0,0,0.5)',
-      backdropFilter: 'blur(10px)',
+      boxShadow: '0 20px 50px rgba(0,0,0,0.7), var(--neu-shadow)',
+      width: '95%',
+      maxWidth: '800px',
     }}>
       <div style={{ maxWidth: '800px', display: 'flex', flexWrap: 'wrap', gap: '24px', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
         <div style={{ flex: '1 1 300px' }}>
