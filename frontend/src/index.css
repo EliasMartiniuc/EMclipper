@@ -96,12 +96,12 @@ body::after {
     -10px 0px 15px #ffffff,
     3px 10px 12px rgba(0, 0, 0, 0.15),
     inset 0px -4px 0px rgba(0,0,0,0.05),
-    0px -4px 0px var(--bg-color);
-  transition: all 0.3s ease-in-out;
+    inset 0px 4px 6px #ffffff;
+  transition: all 0.15s ease-out;
 }
 
 .neu-btn svg {
-  transition: 0.3s ease-in-out;
+  transition: 0.15s ease-out;
   color: var(--text-primary);
 }
 
@@ -114,7 +114,7 @@ body::after {
     -10px 0px 15px #ffffff,
     5px 15px 15px rgba(0, 0, 0, 0.2),
     inset 0px -4px 0px rgba(0,0,0,0.05),
-    0px -4px 0px var(--bg-color);
+    inset 0px 4px 6px #ffffff;
 }
 
 .neu-btn:hover svg {
@@ -145,13 +145,13 @@ body::after {
     -10px 0px 15px rgba(255,255,255,0.7),
     3px 10px 12px rgba(0, 0, 0, 0.2),
     inset 0px -4px 0px rgba(0,0,0,0.15),
-    0px -4px 0px var(--accent-color);
-  transition: all 0.3s ease-in-out;
+    inset 0px 4px 6px rgba(255,255,255,0.3);
+  transition: all 0.15s ease-out;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .neu-btn-primary svg {
-  transition: 0.3s ease-in-out;
+  transition: 0.15s ease-out;
   color: #ffffff;
 }
 
@@ -163,7 +163,7 @@ body::after {
     -10px 0px 15px rgba(255,255,255,0.8),
     5px 15px 15px rgba(0, 0, 0, 0.3),
     inset 0px -4px 0px rgba(0,0,0,0.15),
-    0px -4px 0px var(--accent-color);
+    inset 0px 4px 6px rgba(255,255,255,0.3);
 }
 
 .neu-btn-primary:active {
@@ -301,7 +301,7 @@ h1, h2, h3, h4 {
     -10px 0px 15px #ffffff,
     5px 15px 15px rgba(0, 0, 0, 0.2),
     inset 0px -4px 0px rgba(0,0,0,0.05),
-    0px -4px 0px var(--bg-color);
+    inset 0px 4px 6px #ffffff;
 }
 
 .upload-box:active .neu-btn {

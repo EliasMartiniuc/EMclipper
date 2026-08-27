@@ -47,16 +47,20 @@ function Navbar() {
       backdropFilter: 'blur(16px)',
       WebkitBackdropFilter: 'blur(16px)'
     }}>
-      <div className="container nav-container">
+      <div className="container nav-container" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', width: '100%' }}>
+        
+        {/* Left Side: Logo */}
+        <div style={{ justifySelf: 'start' }}>
           <Link to="/" style={{ textDecoration: 'none', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div className="neu-box" style={{ padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <img src="/logo.png" alt="EMclipper Logo" style={{ width: '72px', height: '72px', borderRadius: '16px', objectFit: 'cover' }} />
             </div>
-            <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>EMclipper</h2>
+            <h2 className="desktop-only" style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>EMclipper</h2>
           </Link>
+        </div>
 
-        {/* Desktop Links */}
-        <div className="nav-links desktop-only">
+        {/* Center: Desktop Links */}
+        <div className="nav-links desktop-only" style={{ justifySelf: 'center' }}>
           {navLinks.map(link => {
             const isActive = location.pathname === link.path || (link.path !== '/' && location.pathname.startsWith(link.path));
             return (
@@ -70,78 +74,82 @@ function Navbar() {
           })}
         </div>
 
-        {/* Desktop Auth */}
-        <div className="nav-auth desktop-only">
-          {user ? (
-            <div className="profile-dropdown-container" style={{ position: 'relative' }}>
-              <button 
-                onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} 
-                className="neu-btn" 
-                style={{ width: '42px', height: '42px', padding: '0', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-                aria-label="User Profile"
-              >
-                <User size={20} />
-              </button>
+        {/* Right Side: Auth & Hamburger */}
+        <div style={{ justifySelf: 'end', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          
+          {/* Desktop Auth */}
+          <div className="nav-auth desktop-only">
+            {user ? (
+              <div className="profile-dropdown-container" style={{ position: 'relative' }}>
+                <button 
+                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} 
+                  className="neu-btn" 
+                  style={{ width: '42px', height: '42px', padding: '0', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+                  aria-label="User Profile"
+                >
+                  <User size={20} />
+                </button>
 
-              {isProfileDropdownOpen && (
-                <div className="neu-card profile-dropdown" style={{ 
-                  position: 'absolute', 
-                  top: '110%', 
-                  right: 0, 
-                  width: '220px', 
-                  padding: '12px',
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  gap: '8px',
-                  zIndex: 1000
-                }}>
-                  <Link to="/settings" style={{ textDecoration: 'none' }} onClick={() => setIsProfileDropdownOpen(false)}>
-                    <button className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
-                      <SettingsIcon size={16} />
-                      Settings
+                {isProfileDropdownOpen && (
+                  <div className="neu-card profile-dropdown" style={{ 
+                    position: 'absolute', 
+                    top: '110%', 
+                    right: 0, 
+                    width: '220px', 
+                    padding: '12px',
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '8px',
+                    zIndex: 1000
+                  }}>
+                    <Link to="/settings" style={{ textDecoration: 'none' }} onClick={() => setIsProfileDropdownOpen(false)}>
+                      <button className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
+                        <SettingsIcon size={16} />
+                        Settings
+                      </button>
+                    </Link>
+                    <button onClick={() => { signOut(); setIsProfileDropdownOpen(false); }} className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
+                      <LogOut size={16} />
+                      Log Out
                     </button>
-                  </Link>
-                  <button onClick={() => { signOut(); setIsProfileDropdownOpen(false); }} className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
-                    <LogOut size={16} />
-                    Log Out
-                  </button>
-                  
-                  <hr style={{ border: 'none', borderTop: '2px solid var(--shadow-dark)', margin: '4px 0' }} />
-                  
-                  <div style={{ padding: '8px 4px', fontSize: '0.85rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {user.user_metadata?.full_name || user.email}
-                    {subscriptionStatus?.is_admin && (
-                      <span style={{ marginLeft: '6px', background: 'var(--accent-color)', color: 'white', padding: '2px 6px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 'bold' }}>ADMIN</span>
-                    )}
+                    
+                    <hr style={{ border: 'none', borderTop: '2px solid var(--shadow-dark)', margin: '4px 0' }} />
+                    
+                    <div style={{ padding: '8px 4px', fontSize: '0.85rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {user.user_metadata?.full_name || user.email}
+                      {subscriptionStatus?.is_admin && (
+                        <span style={{ marginLeft: '6px', background: 'var(--accent-color)', color: 'white', padding: '2px 6px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 'bold' }}>ADMIN</span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <>
-              <Link to="/login" style={{ textDecoration: 'none' }}>
-                <button className="neu-btn">
-                  <LogIn size={18} />
-                  Log In
-                </button>
-              </Link>
-              <Link to="/signup" style={{ textDecoration: 'none' }}>
-                <button className="neu-btn-primary">
-                  <UserPlus size={18} />
-                  Sign Up
-                </button>
-              </Link>
-            </>
-          )}
-        </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <Link to="/login" style={{ textDecoration: 'none' }}>
+                  <button className="neu-btn">
+                    <LogIn size={18} />
+                    Log In
+                  </button>
+                </Link>
+                <Link to="/signup" style={{ textDecoration: 'none' }}>
+                  <button className="neu-btn-primary">
+                    <UserPlus size={18} />
+                    Sign Up
+                  </button>
+                </Link>
+              </>
+            )}
+          </div>
 
-        {/* Mobile Hamburger Button */}
-        <button 
-          className="neu-btn mobile-menu-btn" 
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        >
-          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+          {/* Mobile Hamburger Button */}
+          <button 
+            className="neu-btn mobile-menu-btn" 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu Dropdown */}
