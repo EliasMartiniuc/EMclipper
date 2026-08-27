@@ -235,10 +235,21 @@ function Navbar() {
   );
 }
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  React.useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
+
 function App() {
   return (
     <AuthProvider>
       <Router>
+        <ScrollToTop />
         <UploadProvider>
         <Navbar />
         <main className="container" style={{ paddingBottom: '100px' }}>
