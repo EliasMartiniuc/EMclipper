@@ -49,27 +49,6 @@ export default function Auth({ type }) {
     }
   };
 
-  const handleForgotPassword = async (e) => {
-    e.preventDefault();
-    if (!email) {
-      setError("Please enter your email address first to reset your password.");
-      return;
-    }
-    setLoading(true);
-    setError('');
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/settings',
-      });
-      if (error) throw error;
-      alert("Password reset email sent! Please check your inbox.");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div style={{ display: 'flex', justifyContent: 'center', marginTop: '60px' }}>
       <div className="neu-card" style={{ width: '100%', maxWidth: '450px', textAlign: 'center' }}>
@@ -124,17 +103,12 @@ export default function Auth({ type }) {
               required
             />
           </div>
-
+          
           {isLogin && (
             <div style={{ textAlign: 'right', marginTop: '-12px' }}>
-              <button 
-                type="button" 
-                onClick={handleForgotPassword}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer', textDecoration: 'underline' }}
-                disabled={loading}
-              >
-                Forgot Password?
-              </button>
+              <Link to="/forgot-password" style={{ color: 'var(--accent-color)', fontSize: '0.85rem', textDecoration: 'none', fontWeight: 600 }}>
+                Forgot password?
+              </Link>
             </div>
           )}
 
