@@ -67,14 +67,20 @@ function Settings() {
     }
   };
 
-  const handleResetPassword = async () => {
-    setLoading('reset-pwd');
+  const [newPassword, setNewPassword] = useState('');
+
+  const handleUpdatePassword = async (e) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) {
+      alert("Password must be at least 6 characters.");
+      return;
+    }
+    setLoading('update-pwd');
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: window.location.origin + '/settings',
-      });
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      alert("Password reset email sent! Please check your inbox.");
+      alert("Password updated successfully!");
+      setNewPassword('');
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -111,14 +117,24 @@ function Settings() {
         <div style={{ marginBottom: '30px', paddingTop: '20px', borderTop: '1px solid rgba(0,0,0,0.1)' }}>
           <strong>Security:</strong>
           <div style={{ marginTop: '10px' }}>
-            <button 
-              className="neu-btn" 
-              onClick={handleResetPassword}
-              disabled={loading !== false}
-              style={{ width: '100%' }}
-            >
-              {loading === 'reset-pwd' ? 'Sending...' : 'Send Password Reset Email'}
-            </button>
+            <form onSubmit={handleUpdatePassword} style={{ display: 'flex', gap: '12px', width: '100%' }}>
+              <input 
+                type="password" 
+                className="neu-input" 
+                placeholder="Enter new password" 
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                style={{ flexGrow: 1 }}
+                required
+              />
+              <button 
+                type="submit"
+                className="neu-btn-primary" 
+                disabled={loading !== false}
+              >
+                {loading === 'update-pwd' ? 'Saving...' : 'Update Password'}
+              </button>
+            </form>
           </div>
         </div>
 
