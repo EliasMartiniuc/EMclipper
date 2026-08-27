@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabase';
 import { useAuth } from '../AuthContext';
+import AnimatedButton from '../components/AnimatedButton';
 
 export default function Contact() {
   const { user } = useAuth();
@@ -40,12 +41,16 @@ export default function Contact() {
 
       if (dbError) throw dbError;
 
-      setSuccess(true);
-      setFormData({ name: '', email: user ? user.email : '', message: '' });
+      // Wait a moment so the user sees the airplane animation finish
+      setTimeout(() => {
+        setSuccess(true);
+        setFormData({ name: '', email: user ? user.email : '', message: '' });
+        setIsSubmitting(false);
+      }, 1500);
+      
     } catch (err) {
       console.error('Error submitting feedback:', err);
       setError('There was an error submitting your feedback. Please try again later.');
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -127,14 +132,9 @@ export default function Contact() {
               />
             </div>
             
-            <button 
-              type="submit" 
-              className="neu-btn-primary" 
-              style={{ marginTop: '12px', opacity: isSubmitting ? 0.7 : 1 }}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Sending...' : 'Send Message'}
-            </button>
+            <div style={{ marginTop: '12px' }}>
+              <AnimatedButton isSubmitting={isSubmitting} isSuccess={success} />
+            </div>
           </form>
         )}
       </div>
