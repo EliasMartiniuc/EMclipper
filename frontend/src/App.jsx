@@ -10,6 +10,7 @@ import AuthCallback from './pages/AuthCallback';
 import Settings from './pages/Settings';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
+import Contact from './pages/Contact';
 import { UploadProvider, useUpload } from './UploadContext';
 import { AuthProvider, useAuth } from './AuthContext';
 import { LogOut, Menu, X, User, Settings as SettingsIcon } from 'lucide-react';
@@ -359,6 +360,7 @@ function Footer() {
       <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', justifyContent: 'center' }}>
         <Link to="/" className="footer-link">Home</Link>
         <Link to="/subscription" className="footer-link">Pricing</Link>
+        <Link to="/contact" className="footer-link">Contact Us</Link>
         <Link to="/terms" className="footer-link">Terms of Service</Link>
         <Link to="/privacy" className="footer-link">Privacy Policy</Link>
         <button 
@@ -397,6 +399,7 @@ function App() {
                 <Route path="/projects/:videoId" element={<ProjectDetail />} />
                 <Route path="/subscription" element={<Subscription />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/contact" element={<Contact />} />
                 <Route path="/login" element={<Auth type="login" />} />
                 <Route path="/signup" element={<Auth type="signup" />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
