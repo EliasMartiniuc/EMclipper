@@ -261,6 +261,10 @@ function CookieBanner() {
         });
       }
     }
+
+    const handleOpenPrefs = () => setShow(true);
+    window.addEventListener('openCookiePreferences', handleOpenPrefs);
+    return () => window.removeEventListener('openCookiePreferences', handleOpenPrefs);
   }, []);
 
   if (!show) return null;
@@ -299,6 +303,9 @@ function CookieBanner() {
             className="neu-btn"
             onClick={() => {
               localStorage.setItem('cookieConsent', 'declined');
+              if (window.gtag) {
+                window.gtag('consent', 'update', { 'analytics_storage': 'denied' });
+              }
               setShow(false);
             }}
           >
@@ -354,6 +361,13 @@ function Footer() {
         <Link to="/subscription" className="footer-link">Pricing</Link>
         <Link to="/terms" className="footer-link">Terms of Service</Link>
         <Link to="/privacy" className="footer-link">Privacy Policy</Link>
+        <button 
+          className="footer-link"
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: '1rem', fontFamily: 'inherit' }}
+          onClick={() => window.dispatchEvent(new Event('openCookiePreferences'))}
+        >
+          Cookie Preferences
+        </button>
       </div>
 
       {/* Divider & Copyright */}
