@@ -248,6 +248,15 @@ h1, h2, h3, h4 {
   background-size: 200% 200%;
 }
 
+.sub-card {
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.sub-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(138,122,237,0.15), var(--neu-shadow);
+  border-color: rgba(138,122,237,0.3);
+}
+
 @keyframes bgPan {
   0% { background-position: 0% 50%; }
   100% { background-position: 100% 50%; }

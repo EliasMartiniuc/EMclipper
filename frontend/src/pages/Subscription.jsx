@@ -164,13 +164,11 @@ export default function Subscription() {
           const PlanIcon = plan.icon;
           
           return (
-            <div key={plan.name} className="neu-card" style={{ 
+            <div key={plan.name} className="neu-card sub-card" style={{ 
               position: 'relative',
-              transform: plan.highlighted ? 'scale(1.03)' : 'none',
-              zIndex: plan.highlighted ? 10 : 1,
-              boxShadow: plan.highlighted ? '0 0 30px rgba(138,122,237,0.3), var(--neu-shadow)' : 'var(--neu-shadow)',
               display: 'flex',
               flexDirection: 'column',
+              height: '100%',
             }}>
               {plan.highlighted && (
                 <div style={{ 
@@ -216,7 +214,7 @@ export default function Subscription() {
                 </button>
               ) : (
                 <button 
-                  className={plan.highlighted ? 'neu-btn-primary' : 'neu-btn'} 
+                  className="neu-btn-primary" 
                   style={{ width: '100%' }}
                   onClick={() => handleCheckout(plan.tier)}
                   disabled={loading !== null}
