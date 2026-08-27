@@ -13,7 +13,7 @@ import Privacy from './pages/Privacy';
 import Contact from './pages/Contact';
 import { UploadProvider, useUpload } from './UploadContext';
 import { AuthProvider, useAuth } from './AuthContext';
-import { LogOut, Menu, X, User, Settings as SettingsIcon } from 'lucide-react';
+import { LogOut, Menu, X, User, Settings as SettingsIcon, MessageSquare } from 'lucide-react';
 
 function Navbar() {
   const location = useLocation();
@@ -137,6 +137,12 @@ function Navbar() {
                         Settings
                       </button>
                     </Link>
+                    <Link to="/contact" style={{ textDecoration: 'none' }} onClick={() => setIsProfileDropdownOpen(false)}>
+                      <button className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
+                        <MessageSquare size={16} />
+                        Contact Us
+                      </button>
+                    </Link>
                     <button onClick={() => { signOut(); setIsProfileDropdownOpen(false); }} className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
                       <LogOut size={16} />
                       Log Out
@@ -207,6 +213,10 @@ function Navbar() {
                 <button onClick={() => handleMobileNav('/settings')} className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
                   <SettingsIcon size={18} />
                   Settings
+                </button>
+                <button onClick={() => handleMobileNav('/contact')} className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
+                  <MessageSquare size={18} />
+                  Contact Us
                 </button>
                 <button onClick={() => handleMobileAction(signOut)} className="neu-btn" style={{ width: '100%', justifyContent: 'flex-start' }}>
                   <LogOut size={18} />
