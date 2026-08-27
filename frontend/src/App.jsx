@@ -332,7 +332,7 @@ function CookieBanner() {
 function Footer() {
   return (
     <footer className="navbar-pill" style={{
-      margin: '0 auto 40px auto',
+      margin: 'auto auto 40px auto',
       padding: '32px 24px',
       background: 'rgba(247, 247, 250, 0.5)',
       backdropFilter: 'blur(16px)',
@@ -388,7 +388,7 @@ function App() {
         <ScrollToTop />
         <CookieBanner />
         <UploadProvider>
-          <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
             <Navbar />
             <main className="container" style={{ flex: 1, paddingBottom: '60px', width: '100%' }}>
               <Routes>
