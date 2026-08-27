@@ -8,6 +8,8 @@ import Subscription from './pages/Subscription';
 import Auth from './pages/Auth';
 import AuthCallback from './pages/AuthCallback';
 import Settings from './pages/Settings';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 import { UploadProvider, useUpload } from './UploadContext';
 import { AuthProvider, useAuth } from './AuthContext';
 import { LogOut, Menu, X, User, Settings as SettingsIcon } from 'lucide-react';
@@ -320,6 +322,21 @@ function CookieBanner() {
   );
 }
 
+function Footer() {
+  return (
+    <footer style={{
+      textAlign: 'center', padding: '40px 24px', marginTop: 'auto',
+      borderTop: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-muted)'
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', marginBottom: '16px' }}>
+        <Link to="/terms" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Terms of Service</Link>
+        <Link to="/privacy" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Privacy Policy</Link>
+      </div>
+      <p style={{ margin: 0, fontSize: '0.9rem' }}>&copy; {new Date().getFullYear()} EMclipper. All rights reserved.</p>
+    </footer>
+  );
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -328,7 +345,7 @@ function App() {
         <CookieBanner />
         <UploadProvider>
         <Navbar />
-        <main className="container" style={{ paddingBottom: '100px' }}>
+        <main className="container" style={{ paddingBottom: '100px', minHeight: 'calc(100vh - 300px)' }}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/projects" element={<Projects />} />
@@ -338,8 +355,11 @@ function App() {
             <Route path="/login" element={<Auth type="login" />} />
             <Route path="/signup" element={<Auth type="signup" />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
           </Routes>
         </main>
+        <Footer />
       </UploadProvider>
     </Router>
     </AuthProvider>
