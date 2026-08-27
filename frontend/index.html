@@ -7,14 +7,21 @@
     <title>EMclipper</title>
 
     <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-YOUR_MEASUREMENT_ID"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-TRTG7724BW"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
+      
+      // Default consent to denied for GDPR compliance
+      gtag('consent', 'default', {
+        'ad_storage': 'denied',
+        'analytics_storage': 'denied'
+      });
+
       gtag('js', new Date());
 
       // Send initial pageview
-      gtag('config', 'G-YOUR_MEASUREMENT_ID');
+      gtag('config', 'G-TRTG7724BW');
     </script>
   </head>
   <body>

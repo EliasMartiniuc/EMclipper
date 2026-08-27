@@ -245,11 +245,76 @@ function ScrollToTop() {
   return null;
 }
 
+function CookieBanner() {
+  const [show, setShow] = React.useState(false);
+
+  React.useEffect(() => {
+    const consent = localStorage.getItem('cookieConsent');
+    if (!consent) {
+      setShow(true);
+    } else if (consent === 'accepted') {
+      if (typeof window !== 'undefined' && window.gtag) {
+        window.gtag('consent', 'update', {
+          'analytics_storage': 'granted'
+        });
+      }
+    }
+  }, []);
+
+  if (!show) return null;
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 0, left: 0, right: 0,
+      background: 'var(--bg-card)', padding: '24px',
+      borderTop: '1px solid rgba(255,255,255,0.1)',
+      display: 'flex', flexDirection: 'column', gap: '16px',
+      alignItems: 'center', justifyContent: 'center',
+      zIndex: 9999,
+      boxShadow: '0 -10px 30px rgba(0,0,0,0.5)',
+      backdropFilter: 'blur(10px)',
+    }}>
+      <div style={{ maxWidth: '800px', display: 'flex', flexWrap: 'wrap', gap: '24px', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+        <div style={{ flex: '1 1 300px' }}>
+          <h3 style={{ marginBottom: '8px', fontSize: '1.1rem' }}>We use cookies 🍪</h3>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0, lineHeight: 1.5 }}>
+            We use Google Analytics to understand how you use EMclipper so we can improve the platform. Do you accept these analytics cookies?
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            className="neu-btn"
+            onClick={() => {
+              localStorage.setItem('cookieConsent', 'declined');
+              setShow(false);
+            }}
+          >
+            Decline
+          </button>
+          <button 
+            className="neu-btn-primary"
+            onClick={() => {
+              localStorage.setItem('cookieConsent', 'accepted');
+              if (window.gtag) {
+                window.gtag('consent', 'update', { 'analytics_storage': 'granted' });
+              }
+              setShow(false);
+            }}
+          >
+            Accept
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   return (
     <AuthProvider>
       <Router>
         <ScrollToTop />
+        <CookieBanner />
         <UploadProvider>
         <Navbar />
         <main className="container" style={{ paddingBottom: '100px' }}>
