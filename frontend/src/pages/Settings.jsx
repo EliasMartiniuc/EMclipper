@@ -1,12 +1,70 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { supabase } from '../supabase';
 import { useNavigate } from 'react-router-dom';
+import { Lock, CheckCircle } from 'lucide-react';
 
 function Settings() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+
+  // Password update state
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  // Listen for PASSWORD_RECOVERY event from Supabase
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecoveryMode(true);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleUpdatePassword = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+
+    // Validation
+    if (newPassword.length < 8) {
+      setPasswordError('Password must be at least 8 characters long.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match.');
+      return;
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      setPasswordError('Password must contain at least one uppercase letter.');
+      return;
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      setPasswordError('Password must contain at least one number.');
+      return;
+    }
+
+    setLoading('update-pwd');
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setPasswordSuccess(true);
+      setIsRecoveryMode(false);
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPasswordSuccess(false), 5000);
+    } catch (err) {
+      console.error(err);
+      setPasswordError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleManageSubscription = async () => {
     setLoading('manage');
@@ -71,7 +129,7 @@ function Settings() {
     setLoading('reset-pwd');
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: window.location.origin + '/update-password',
+        redirectTo: window.location.origin + '/settings',
       });
       if (error) throw error;
       alert("Password reset email sent! Please check your inbox.");
@@ -94,6 +152,67 @@ function Settings() {
   return (
     <div className="container" style={{ maxWidth: '600px', marginTop: '60px' }}>
       <h2 style={{ marginBottom: '30px' }}>Account Settings</h2>
+
+      {/* Password Recovery Form — shown when arriving from reset email */}
+      {isRecoveryMode && (
+        <div className="neu-panel" style={{ padding: '30px', marginBottom: '30px', border: '2px solid var(--accent-color)' }}>
+          <h3 style={{ marginBottom: '20px', color: 'var(--accent-color)' }}>Set New Password</h3>
+          <form onSubmit={handleUpdatePassword} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ position: 'relative' }}>
+              <Lock size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                type="password"
+                className="neu-input"
+                placeholder="New Password"
+                style={{ paddingLeft: '44px' }}
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                required
+                minLength={8}
+              />
+            </div>
+            <div style={{ position: 'relative' }}>
+              <Lock size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                type="password"
+                className="neu-input"
+                placeholder="Confirm New Password"
+                style={{ paddingLeft: '44px' }}
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                required
+                minLength={8}
+              />
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+              Must be 8+ characters with at least one uppercase letter and one number.
+            </p>
+            {passwordError && (
+              <div style={{ color: '#ff4444', fontWeight: 'bold', fontSize: '0.9rem' }}>{passwordError}</div>
+            )}
+            <button
+              type="submit"
+              className="neu-btn-primary"
+              style={{ width: '100%' }}
+              disabled={loading === 'update-pwd'}
+            >
+              {loading === 'update-pwd' ? 'Updating...' : 'Update Password'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Password Updated Success Banner */}
+      {passwordSuccess && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '12px',
+          background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)',
+          color: '#22c55e', padding: '16px 24px', borderRadius: '12px', marginBottom: '20px', fontWeight: 600
+        }}>
+          <CheckCircle size={20} />
+          Password updated successfully!
+        </div>
+      )}
       
       <div className="neu-panel" style={{ padding: '30px', marginBottom: '30px' }}>
         <div style={{ marginBottom: '20px' }}>

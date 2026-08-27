@@ -11,6 +11,8 @@ export default function Auth({ type }) {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
 
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -49,81 +51,180 @@ export default function Auth({ type }) {
     }
   };
 
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!email) {
+      setError('Please enter your email address.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/settings',
+      });
+      if (error) throw error;
+      setForgotSent(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', justifyContent: 'center', marginTop: '60px' }}>
       <div className="neu-card" style={{ width: '100%', maxWidth: '450px', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '2rem', marginBottom: '8px' }} className="kinetic-text">
-          {isLogin ? 'Welcome Back' : 'Create Account'}
-        </h2>
-        <p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>
-          {isLogin ? 'Log in to access your projects.' : 'Start turning your videos into viral shorts.'}
-        </p>
+        
+        {/* Forgot Password Mode */}
+        {isLogin && forgotMode ? (
+          <>
+            <h2 style={{ fontSize: '2rem', marginBottom: '8px' }} className="kinetic-text">
+              Reset Password
+            </h2>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>
+              Enter your email and we'll send you a secure link to reset your password.
+            </p>
 
-        {error && <div style={{ color: 'red', marginBottom: '16px', fontWeight: 'bold' }}>{error}</div>}
+            {error && <div style={{ color: 'red', marginBottom: '16px', fontWeight: 'bold' }}>{error}</div>}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
-          {!isLogin && (
-            <div style={{ position: 'relative' }}>
-              <User size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input 
-                type="text" 
-                className="neu-input" 
-                placeholder="Full Name" 
-                style={{ paddingLeft: '48px' }}
-                value={name}
-                onChange={e => setName(e.target.value)}
-                required
-              />
-            </div>
-          )}
+            {forgotSent ? (
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px'
+              }}>
+                <div style={{
+                  width: '64px', height: '64px', borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #00c853, #00e676)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <CheckCircle size={32} color="#fff" />
+                </div>
+                <p style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '1.1rem' }}>
+                  Reset link sent!
+                </p>
+                <p style={{ color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                  Check your inbox at <strong style={{ color: 'var(--accent-color)' }}>{email}</strong>. Click the link in the email, and you'll be taken to a page where you can set a new password.
+                </p>
+                <button
+                  className="neu-btn"
+                  onClick={() => { setForgotMode(false); setForgotSent(false); setError(''); }}
+                  style={{ marginTop: '12px', width: '100%' }}
+                >
+                  Back to Login
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ position: 'relative' }}>
+                  <Mail size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input 
+                    type="email" 
+                    className="neu-input" 
+                    placeholder="Email Address" 
+                    style={{ paddingLeft: '48px' }}
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <button type="submit" className="neu-btn-primary" style={{ width: '100%', padding: '16px' }} disabled={loading}>
+                  {loading ? <Loader2 className="spinner" size={18} /> : 'Send Reset Link'}
+                </button>
+              </form>
+            )}
 
-          <div style={{ position: 'relative' }}>
-            <Mail size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input 
-              type="email" 
-              className="neu-input" 
-              placeholder="Email Address" 
-              style={{ paddingLeft: '48px' }}
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-            />
-          </div>
+            {!forgotSent && (
+              <div style={{ marginTop: '24px', color: 'var(--text-muted)' }}>
+                Remember your password?{' '}
+                <span
+                  onClick={() => { setForgotMode(false); setError(''); }}
+                  style={{ color: 'var(--accent-color)', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  Back to Login
+                </span>
+              </div>
+            )}
+          </>
+        ) : (
+          /* Normal Login / Signup Form */
+          <>
+            <h2 style={{ fontSize: '2rem', marginBottom: '8px' }} className="kinetic-text">
+              {isLogin ? 'Welcome Back' : 'Create Account'}
+            </h2>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>
+              {isLogin ? 'Log in to access your projects.' : 'Start turning your videos into viral shorts.'}
+            </p>
 
-          <div style={{ position: 'relative' }}>
-            <Lock size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input 
-              type="password" 
-              className="neu-input" 
-              placeholder="Password" 
-              style={{ paddingLeft: '48px' }}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          
-          {isLogin && (
-            <div style={{ textAlign: 'right', marginTop: '-12px' }}>
-              <Link to="/forgot-password" style={{ color: 'var(--accent-color)', fontSize: '0.85rem', textDecoration: 'none', fontWeight: 600 }}>
-                Forgot password?
+            {error && <div style={{ color: 'red', marginBottom: '16px', fontWeight: 'bold' }}>{error}</div>}
+
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {!isLogin && (
+                <div style={{ position: 'relative' }}>
+                  <User size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input 
+                    type="text" 
+                    className="neu-input" 
+                    placeholder="Full Name" 
+                    style={{ paddingLeft: '48px' }}
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
+
+              <div style={{ position: 'relative' }}>
+                <Mail size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input 
+                  type="email" 
+                  className="neu-input" 
+                  placeholder="Email Address" 
+                  style={{ paddingLeft: '48px' }}
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div style={{ position: 'relative' }}>
+                <Lock size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input 
+                  type="password" 
+                  className="neu-input" 
+                  placeholder="Password" 
+                  style={{ paddingLeft: '48px' }}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <button type="submit" className="neu-btn-primary" style={{ marginTop: '12px', width: '100%', padding: '16px' }} disabled={loading}>
+                {loading ? <Loader2 className="spinner" size={18} /> : (isLogin ? 'Log In' : 'Sign Up')}
+              </button>
+
+            </form>
+
+            {isLogin && (
+              <div style={{ marginTop: '16px' }}>
+                <span
+                  onClick={() => { setForgotMode(true); setError(''); }}
+                  style={{ color: 'var(--accent-color)', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}
+                >
+                  Forgot password?
+                </span>
+              </div>
+            )}
+
+            <div style={{ marginTop: '24px', color: 'var(--text-muted)' }}>
+              {isLogin ? "Don't have an account? " : "Already have an account? "}
+              <Link to={isLogin ? '/signup' : '/login'} style={{ color: 'var(--accent-color)', fontWeight: 'bold', textDecoration: 'none' }}>
+                {isLogin ? 'Sign up here' : 'Log in here'}
               </Link>
             </div>
-          )}
-
-          <button type="submit" className="neu-btn-primary" style={{ marginTop: '12px', width: '100%', padding: '16px' }} disabled={loading}>
-            {loading ? <Loader2 className="spinner" size={18} /> : (isLogin ? 'Log In' : 'Sign Up')}
-          </button>
-
-        </form>
-
-        <div style={{ marginTop: '32px', color: 'var(--text-muted)' }}>
-          {isLogin ? "Don't have an account? " : "Already have an account? "}
-          <Link to={isLogin ? '/signup' : '/login'} style={{ color: 'var(--accent-color)', fontWeight: 'bold', textDecoration: 'none' }}>
-            {isLogin ? 'Sign up here' : 'Log in here'}
-          </Link>
-        </div>
+          </>
+        )}
       </div>
 
       {/* Verification Email Modal */}
