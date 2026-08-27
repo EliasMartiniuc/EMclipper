@@ -38,29 +38,34 @@ function Navbar() {
 
   return (
     <nav style={{ 
-      padding: '16px 0', 
-      marginBottom: '40px', 
+      padding: '12px 24px', 
+      margin: '24px auto 40px auto', 
+      width: 'max-content',
+      maxWidth: '95%',
       position: 'sticky', 
-      top: 0, 
+      top: '24px', 
       zIndex: 100,
-      background: 'rgba(247, 247, 250, 0.35)',
+      background: 'rgba(247, 247, 250, 0.5)',
       backdropFilter: 'blur(16px)',
-      WebkitBackdropFilter: 'blur(16px)'
+      WebkitBackdropFilter: 'blur(16px)',
+      borderRadius: '40px',
+      boxShadow: 'var(--neu-shadow)',
+      border: '1px solid rgba(255,255,255,0.4)'
     }}>
-      <div className="container nav-container" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', width: '100%' }}>
+      <div className="nav-container" style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
         
         {/* Left Side: Logo */}
-        <div style={{ justifySelf: 'start' }}>
+        <div>
           <Link to="/" style={{ textDecoration: 'none', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div className="neu-box" style={{ padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src="/logo.png" alt="EMclipper Logo" style={{ width: '72px', height: '72px', borderRadius: '16px', objectFit: 'cover' }} />
+            <div className="neu-box" style={{ padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}>
+              <img src="/logo.png" alt="EMclipper Logo" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover' }} />
             </div>
-            <h2 className="desktop-only" style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>EMclipper</h2>
+            <h2 className="desktop-only" style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>EMclipper</h2>
           </Link>
         </div>
 
         {/* Center: Desktop Links */}
-        <div className="nav-links desktop-only" style={{ justifySelf: 'center' }}>
+        <div className="nav-links desktop-only" style={{ display: 'flex', gap: '12px' }}>
           {navLinks.map(link => {
             const isActive = location.pathname === link.path || (link.path !== '/' && location.pathname.startsWith(link.path));
             return (
@@ -75,7 +80,7 @@ function Navbar() {
         </div>
 
         {/* Right Side: Auth & Hamburger */}
-        <div style={{ justifySelf: 'end', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           
           {/* Desktop Auth */}
           <div className="nav-auth desktop-only">
@@ -125,7 +130,7 @@ function Navbar() {
                 )}
               </div>
             ) : (
-              <>
+              <div style={{ display: 'flex', gap: '12px' }}>
                 <Link to="/login" style={{ textDecoration: 'none' }}>
                   <button className="neu-btn">
                     <LogIn size={18} />
@@ -138,7 +143,7 @@ function Navbar() {
                     Sign Up
                   </button>
                 </Link>
-              </>
+              </div>
             )}
           </div>
 
