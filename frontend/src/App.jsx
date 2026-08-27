@@ -390,7 +390,7 @@ function App() {
         <UploadProvider>
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
             <Navbar />
-            <main className="container" style={{ flex: 1, paddingBottom: '120px', width: '100%' }}>
+            <main className="container" style={{ flex: 1, paddingBottom: '120px', width: '100%', minHeight: '100vh' }}>
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/projects" element={<Projects />} />
