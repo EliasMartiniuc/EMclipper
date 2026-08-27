@@ -82,7 +82,6 @@ export default function Subscription() {
       features: ['26 video uploads per month', 'AI highlight detection', 'Auto-generated subtitles', 'HD export quality', 'Priority support'],
       tier: 'pro',
       icon: Zap,
-      highlighted: true,
     },
     {
       name: 'Ultra',

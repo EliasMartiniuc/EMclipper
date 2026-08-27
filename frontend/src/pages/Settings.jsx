@@ -67,6 +67,22 @@ function Settings() {
     }
   };
 
+  const handleResetPassword = async () => {
+    setLoading('reset-pwd');
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: window.location.origin + '/settings',
+      });
+      if (error) throw error;
+      alert("Password reset email sent! Please check your inbox.");
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="container" style={{ textAlign: 'center', marginTop: '100px' }}>
@@ -82,13 +98,27 @@ function Settings() {
       <div className="neu-panel" style={{ padding: '30px', marginBottom: '30px' }}>
         <div style={{ marginBottom: '20px' }}>
           <strong>Email:</strong>
-          <div style={{ marginTop: '5px', color: '#ccc' }}>{user.email}</div>
+          <div style={{ marginTop: '5px', color: 'var(--text-primary)', fontWeight: '500' }}>{user.email}</div>
         </div>
         
         <div style={{ marginBottom: '30px' }}>
           <strong>Username:</strong>
-          <div style={{ marginTop: '5px', color: '#ccc' }}>
+          <div style={{ marginTop: '5px', color: 'var(--text-primary)', fontWeight: '500' }}>
             {user.user_metadata?.full_name || user.user_metadata?.name || 'User'}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '30px', paddingTop: '20px', borderTop: '1px solid rgba(0,0,0,0.1)' }}>
+          <strong>Security:</strong>
+          <div style={{ marginTop: '10px' }}>
+            <button 
+              className="neu-btn" 
+              onClick={handleResetPassword}
+              disabled={loading !== false}
+              style={{ width: '100%' }}
+            >
+              {loading === 'reset-pwd' ? 'Sending...' : 'Send Password Reset Email'}
+            </button>
           </div>
         </div>
 
