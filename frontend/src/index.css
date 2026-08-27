@@ -78,59 +78,99 @@ body::after {
 }
 
 .neu-btn {
-  background: var(--bg-color);
-  color: var(--text-primary);
-  border: none;
-  border-radius: 12px;
+  background-color: #f4f5f6;
+  border: 2px solid #888888;
+  border-radius: 16px;
   padding: 12px 24px;
+  color: #888888;
   font-weight: 600;
   font-size: 1rem;
   cursor: pointer;
-  box-shadow: var(--neu-shadow-sm);
-  transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  box-shadow:
+    -3px -10px 15px #ffffff,
+    -3px -5px 8px #ffffff,
+    -10px 0px 15px #ffffff,
+    3px 10px 12px rgba(0, 0, 0, 0.2),
+    inset 0px -4px 0px #dddddd,
+    0px -4px 0px #f4f5f6;
+  transition: all 0.3s ease-in-out;
+  /* Add text styling from template */
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+.neu-btn svg {
+  transition: 0.3s ease-in-out;
+  color: #888888;
 }
 
 .neu-btn:hover {
-  color: var(--accent-color);
-  transform: translateY(-1px);
+  transform: scale(1.05);
+  box-shadow:
+    -3px -15px 20px #ffffff,
+    -3px -10px 10px #ffffff,
+    -10px 0px 15px #ffffff,
+    5px 15px 15px rgba(0, 0, 0, 0.3),
+    inset 0px -4px 0px #dddddd,
+    0px -4px 0px #f4f5f6;
 }
 
 .neu-btn:active, .neu-btn.active {
-  box-shadow: var(--neu-inset);
-  color: var(--accent-color);
-  transform: translateY(1px);
+  transform: scale(0.95);
+  box-shadow: none;
 }
 
 .neu-btn-primary {
-  background: var(--accent-color);
-  color: #fff;
-  border: none;
-  border-radius: 12px;
+  background-color: var(--accent-color);
+  border: 2px solid var(--accent-hover);
+  border-radius: 16px;
   padding: 12px 24px;
+  color: #ffffff;
   font-weight: 600;
   font-size: 1rem;
   cursor: pointer;
-  transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  /* Primary buttons use a slightly different shadow so they don't look muddy */
-  box-shadow: 4px 4px 10px rgba(138, 122, 237, 0.4),
-              -2px -2px 8px rgba(255, 255, 255, 0.8);
+  box-shadow:
+    -3px -10px 15px rgba(255,255,255,0.7),
+    -3px -5px 8px rgba(255,255,255,0.7),
+    -10px 0px 15px rgba(255,255,255,0.7),
+    3px 10px 12px rgba(0, 0, 0, 0.2),
+    inset 0px -4px 0px rgba(0,0,0,0.15),
+    0px -4px 0px var(--accent-color);
+  transition: all 0.3s ease-in-out;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.neu-btn-primary svg {
+  transition: 0.3s ease-in-out;
+  color: #ffffff;
 }
 
 .neu-btn-primary:hover {
-  background: var(--accent-hover);
-  color: #fff;
+  transform: scale(1.05);
+  box-shadow:
+    -3px -15px 20px rgba(255,255,255,0.8),
+    -3px -10px 10px rgba(255,255,255,0.8),
+    -10px 0px 15px rgba(255,255,255,0.8),
+    5px 15px 15px rgba(0, 0, 0, 0.3),
+    inset 0px -4px 0px rgba(0,0,0,0.15),
+    0px -4px 0px var(--accent-color);
 }
 
 .neu-btn-primary:active {
-  box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.2), inset -2px -2px 4px rgba(255, 255, 255, 0.2);
+  transform: scale(0.95);
+  box-shadow: none;
+}
+
+/* Floating animation for icons on hover for both buttons */
+.neu-btn:hover svg, .neu-btn-primary:hover svg {
+  transform: translateY(-4px);
 }
 
 .neu-input {
