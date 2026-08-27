@@ -388,24 +388,26 @@ function App() {
         <ScrollToTop />
         <CookieBanner />
         <UploadProvider>
-        <Navbar />
-        <main className="container" style={{ paddingBottom: '100px', minHeight: 'calc(100vh - 300px)' }}>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/projects/:videoId" element={<ProjectDetail />} />
-            <Route path="/subscription" element={<Subscription />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/login" element={<Auth type="login" />} />
-            <Route path="/signup" element={<Auth type="signup" />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/privacy" element={<Privacy />} />
-          </Routes>
-        </main>
-        <Footer />
-      </UploadProvider>
-    </Router>
+          <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+            <Navbar />
+            <main className="container" style={{ flex: 1, paddingBottom: '60px', width: '100%' }}>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/projects" element={<Projects />} />
+                <Route path="/projects/:videoId" element={<ProjectDetail />} />
+                <Route path="/subscription" element={<Subscription />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/login" element={<Auth type="login" />} />
+                <Route path="/signup" element={<Auth type="signup" />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/privacy" element={<Privacy />} />
+              </Routes>
+            </main>
+            <Footer />
+          </div>
+        </UploadProvider>
+      </Router>
     </AuthProvider>
   );
 }
