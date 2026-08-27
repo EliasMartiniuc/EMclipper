@@ -276,9 +276,14 @@ function CookieBanner() {
       alignItems: 'center', 
       justifyContent: 'center',
       zIndex: 9999,
-      boxShadow: '0 20px 50px rgba(0,0,0,0.7), var(--neu-shadow)',
       width: '95%',
       maxWidth: '800px',
+      background: 'rgba(247, 247, 250, 0.5)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+      borderRadius: '40px',
+      boxShadow: '0 20px 50px rgba(0,0,0,0.2), var(--neu-shadow)',
+      border: '1px solid rgba(255,255,255,0.4)'
     }}>
       <div style={{ maxWidth: '800px', display: 'flex', flexWrap: 'wrap', gap: '24px', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
         <div style={{ flex: '1 1 300px' }}>
