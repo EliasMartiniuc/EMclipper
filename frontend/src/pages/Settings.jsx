@@ -125,21 +125,6 @@ function Settings() {
     }
   };
 
-  const handleResetPassword = async () => {
-    setLoading('reset-pwd');
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: window.location.origin + '/settings',
-      });
-      if (error) throw error;
-      alert("Password reset email sent! Please check your inbox.");
-    } catch (err) {
-      console.error(err);
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (!user) {
     return (
@@ -190,14 +175,28 @@ function Settings() {
             {passwordError && (
               <div style={{ color: '#ff4444', fontWeight: 'bold', fontSize: '0.9rem' }}>{passwordError}</div>
             )}
-            <button
-              type="submit"
-              className="neu-btn-primary"
-              style={{ width: '100%' }}
-              disabled={loading === 'update-pwd'}
-            >
-              {loading === 'update-pwd' ? 'Updating...' : 'Update Password'}
-            </button>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                type="submit"
+                className="neu-btn-primary"
+                style={{ flex: 1 }}
+                disabled={loading === 'update-pwd'}
+              >
+                {loading === 'update-pwd' ? 'Updating...' : 'Update Password'}
+              </button>
+              <button
+                type="button"
+                className="neu-btn"
+                onClick={() => {
+                  setIsRecoveryMode(false);
+                  setNewPassword('');
+                  setConfirmPassword('');
+                  setPasswordError('');
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           </form>
         </div>
       )}
@@ -232,11 +231,13 @@ function Settings() {
           <div style={{ marginTop: '10px' }}>
             <button 
               className="neu-btn" 
-              onClick={handleResetPassword}
-              disabled={loading !== false}
+              onClick={() => {
+                setIsRecoveryMode(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
               style={{ width: '100%' }}
             >
-              {loading === 'reset-pwd' ? 'Sending...' : 'Send Password Reset Email'}
+              Change Password
             </button>
           </div>
         </div>
