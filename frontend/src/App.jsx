@@ -77,7 +77,7 @@ function Navbar() {
               <button 
                 onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)} 
                 className="neu-btn" 
-                style={{ padding: '8px 12px', borderRadius: '50%' }}
+                style={{ width: '42px', height: '42px', padding: '0', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
                 aria-label="User Profile"
               >
                 <User size={20} />
