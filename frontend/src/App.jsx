@@ -37,11 +37,9 @@ function Navbar() {
   ];
 
   return (
-    <nav style={{ 
+    <nav className="navbar-pill" style={{ 
       padding: '12px 24px', 
       margin: '24px auto 40px auto', 
-      width: 'max-content',
-      maxWidth: '95%',
       position: 'sticky', 
       top: '24px', 
       zIndex: 100,
@@ -52,7 +50,7 @@ function Navbar() {
       boxShadow: 'var(--neu-shadow)',
       border: '1px solid rgba(255,255,255,0.4)'
     }}>
-      <div className="nav-container" style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+      <div className="nav-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '32px', width: '100%' }}>
         
         {/* Left Side: Logo */}
         <div>

@@ -333,8 +333,18 @@ h1, h2, h3, h4 {
   display: none;
 }
 
+.navbar-pill {
+  width: max-content;
+  max-width: 95%;
+  transition: all 0.3s ease;
+}
+
 /* Responsive Overrides */
 @media (max-width: 768px) {
+  .navbar-pill {
+    width: 95%;
+  }
+
   .desktop-only {
     display: none !important;
   }
