@@ -17,16 +17,12 @@ import json
 logger = logging.getLogger(__name__)
 
 
-import httpx
-import os
-from config import DOWNLOADS_DIR, TEMP_DIR, BASE_DIR
-
 def download_video(url: str, job_id: str) -> Tuple[Path, dict]:
     """
-    Download the best quality video from a URL using the self-hosted Cobalt API.
+    Download the best quality video from a YouTube URL.
 
     Args:
-        url: Video URL (YouTube, TikTok, etc.)
+        url: YouTube video URL
         job_id: Unique job identifier for file organization
 
     Returns:
@@ -35,83 +31,130 @@ def download_video(url: str, job_id: str) -> Tuple[Path, dict]:
     Raises:
         RuntimeError: If download fails for any reason
     """
-    cobalt_api_url = os.environ.get("COBALT_API_URL")
-    if not cobalt_api_url:
-        raise RuntimeError("COBALT_API_URL is not set in .env")
-        
     output_dir = DOWNLOADS_DIR / job_id
     output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # We will save as mp4 temporarily
-    video_path = output_dir / "downloaded_video.mp4"
 
-    logger.info(f"Requesting Cobalt API for URL: {url}")
-    
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
+    output_template = str(output_dir / "%(title).100s.%(ext)s")
+
+    ydl_opts = {
+        # Format selection: cap at 1080p for fast processing and crisp 1080p clip output
+        "format": "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
+        "outtmpl": output_template,
+        "merge_output_format": "mp4",
+        # ALWAYS use android and web player clients. This is mandatory on headless servers
+        # to bypass the IP-mismatch age restriction check, even when cookies are provided.
+        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        # Reliability
+        "no_warnings": True,
+        "quiet": True,
+        "no_color": True,
+        "socket_timeout": 30,
+        "remote_components": ["ejs:github"],
+        "retries": 5,
+        "fragment_retries": 5,
+        "file_access_retries": 10,
+        # Avoid throttling
+        "sleep_interval_requests": 1,
+        # Don't download subtitles, thumbnails, etc.
+        "writesubtitles": False,
+        "writethumbnail": False,
+        "writedescription": False,
+        "writeinfojson": False,
+        # Progress hooks for logging
+        "progress_hooks": [_progress_hook],
     }
-    payload = {
-        "url": url,
-        "vCodec": "h264",
-        "vQuality": "1080",
-    }
+
+    job_cookie_file = TEMP_DIR / job_id / "cookies.txt"
+    global_cookie_file = BASE_DIR / "cookies.txt"
     
+    if job_cookie_file.exists():
+        logger.info("Using uploaded cookies.txt for yt-dlp authentication")
+        ydl_opts["cookiefile"] = str(job_cookie_file)
+    elif global_cookie_file.exists():
+        logger.info("Using global cookies.txt for yt-dlp authentication")
+        ydl_opts["cookiefile"] = str(global_cookie_file)
+    elif YOUTUBE_BROWSER:
+        logger.info(f"Using browser cookies from: {YOUTUBE_BROWSER}")
+        ydl_opts["cookiesfrombrowser"] = (YOUTUBE_BROWSER.lower(),)
+        
+    if PROXY_URL:
+        logger.info("Routing download through residential proxy to bypass Datacenter blocks")
+        ydl_opts["proxy"] = PROXY_URL
+
     try:
-        # 1. Ask Cobalt for the direct download link
-        with httpx.Client(timeout=30.0) as client:
-            res = client.post(cobalt_api_url, json=payload, headers=headers)
-            
-            if res.status_code != 200:
-                raise RuntimeError(f"Cobalt API returned {res.status_code}: {res.text}")
-                
-            data = res.json()
-            
-            if data.get("status") == "error":
-                raise RuntimeError(f"Cobalt Error: {data.get('text', 'Unknown error')}")
-                
-            direct_url = data.get("url")
-            if not direct_url:
-                raise RuntimeError("Cobalt returned a successful response but no download URL.")
+        with YoutubeDL(ydl_opts) as ydl:
+            logger.info(f"Extracting info for: {url}")
+            info = ydl.extract_info(url, download=False)
 
-        logger.info(f"Cobalt returned direct URL. Starting download...")
-        
-        # 2. Download the actual video file
-        # We stream the download since videos can be large
-        with httpx.stream("GET", direct_url, follow_redirects=True, timeout=120.0) as response:
-            if response.status_code != 200:
-                raise RuntimeError(f"Failed to download video file. HTTP {response.status_code}")
-                
-            with open(video_path, "wb") as f:
-                for chunk in response.iter_bytes(chunk_size=8192):
-                    f.write(chunk)
+            if info is None:
+                raise RuntimeError("yt-dlp returned no video info")
 
-        if not video_path.exists() or video_path.stat().st_size == 0:
-            raise RuntimeError("Downloaded video is empty (0 bytes)")
+            logger.info(f"Starting download: {info.get('title', url)}")
+            try:
+                ydl.download([url])
+            except Exception as dl_e:
+                error_msg = str(dl_e)
+                if "WinError 32" in error_msg:
+                    logger.warning("yt-dlp hit a Windows file lock during cleanup. Sleeping 3s to let Defender finish...")
+                    time.sleep(3)
+                else:
+                    raise dl_e
 
-        # 3. Get Video Info (Since Cobalt doesn't return duration/title reliably, we use ffprobe)
-        size_mb = video_path.stat().st_size / (1024 * 1024)
-        duration = get_video_duration(video_path)
-        
-        video_info = {
-            "title": "Cobalt Download", # Cobalt doesn't always provide title
-            "duration": duration,
-            "uploader": "Unknown",
-            "description": "",
-            "fps": 30,
-            "width": 1080,
-            "height": 1920,
-        }
-        
-        logger.info(
-            f"Download complete: {size_mb:.1f} MB, Duration: {duration:.1f}s"
-        )
+            # Resolve the actual downloaded file path
+            video_path = _resolve_downloaded_path(info, output_dir)
 
-        return video_path, video_info
+            if not video_path.exists():
+                raise RuntimeError(f"Downloaded file not found: {video_path}")
+
+            if video_path.stat().st_size == 0:
+                raise RuntimeError("Downloaded file is empty (0 bytes)")
+
+            video_info = {
+                "title": info.get("title", "Unknown"),
+                "duration": info.get("duration", 0),
+                "uploader": info.get("uploader", "Unknown"),
+                "description": info.get("description", ""),
+                "fps": info.get("fps", 30) or 30,
+                "width": info.get("width", 1920) or 1920,
+                "height": info.get("height", 1080) or 1080,
+                "view_count": info.get("view_count", 0),
+                "upload_date": info.get("upload_date", ""),
+            }
+
+            size_mb = video_path.stat().st_size / (1024 * 1024)
+            logger.info(
+                f"Download complete: '{video_info['title']}' "
+                f"({video_info['duration']}s, {size_mb:.1f} MB, "
+                f"{video_info['width']}x{video_info['height']}@{video_info['fps']}fps)"
+            )
+
+            return video_path, video_info
 
     except Exception as e:
-        logger.error(f"Download failed: {e}")
-        raise RuntimeError(f"Download failed: {e}")
+        error_msg = str(e)
+
+        # Provide user-friendly error messages for common failures
+        if "Video unavailable" in error_msg or "Private video" in error_msg:
+            raise RuntimeError(
+                f"Video is unavailable or private. Check the URL and try again."
+            )
+        elif "Sign in to confirm" in error_msg or "age" in error_msg.lower():
+            raise RuntimeError(
+                f"Video is age-restricted and cannot be downloaded without authentication."
+            )
+        elif "Requested format is not available" in error_msg:
+            raise RuntimeError(
+                "YouTube blocked the video stream. If this is an age-restricted video, your uploaded cookies.txt may have been wiped out by a server restart. Please re-upload cookies.txt and try again."
+            )
+        elif "HTTP Error 429" in error_msg or "Too Many Requests" in error_msg:
+            raise RuntimeError(
+                f"YouTube rate limit hit. Wait a few minutes and try again."
+            )
+        elif "is not a valid URL" in error_msg or "Unsupported URL" in error_msg:
+            raise RuntimeError(f"Invalid URL: {url}")
+        else:
+            logger.error(f"Download failed: {e}")
+            raise RuntimeError(f"Download failed: {error_msg}")
 
 
 def _resolve_downloaded_path(info: dict, output_dir: Path) -> Path:
