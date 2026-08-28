@@ -1,13 +1,15 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Upload, XCircle, PlayCircle, Loader2 } from 'lucide-react';
+import { Upload, XCircle, PlayCircle, Loader2, Link as LinkIcon } from 'lucide-react';
 import { useUpload } from '../UploadContext';
 import { useAuth } from '../AuthContext';
 
 export default function Home() {
+  const [urlStr, setUrlStr] = useState('');
+  
   const {
     file, handleFileChange, isProcessing, progress, progressText, 
-    speedText, logs, error, startProcessing, stopProcessing, activeJobId, hasClips,
+    speedText, logs, error, startProcessing, startProcessingUrl, stopProcessing, activeJobId, hasClips,
     subscriptionStatus
   } = useUpload();
   const { user } = useAuth();
@@ -79,6 +81,30 @@ export default function Home() {
           
           {!isProcessing ? (
             <>
+              <div style={{ marginBottom: '24px', textAlign: 'left' }}>
+                <div style={{ position: 'relative' }}>
+                  <LinkIcon size={20} color="var(--text-muted)" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }} />
+                  <input
+                    type="url"
+                    placeholder="Paste a YouTube, TikTok, or Twitter link..."
+                    value={urlStr}
+                    onChange={(e) => {
+                      setUrlStr(e.target.value);
+                      if (file && e.target.value) handleFileChange({ target: { files: [] } }); // clear file if URL typed
+                    }}
+                    disabled={!canUpload && !isAdmin}
+                    className="neu-input"
+                    style={{ width: '100%', padding: '16px 16px 16px 48px', borderRadius: '16px', fontSize: '1rem', border: 'none', outline: 'none' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', margin: '0 0 24px 0' }}>
+                <hr style={{ flex: 1, borderTop: '1px solid var(--shadow-dark)' }} />
+                <span style={{ margin: '0 16px', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 600 }}>OR</span>
+                <hr style={{ flex: 1, borderTop: '1px solid var(--shadow-dark)' }} />
+              </div>
+
               <div className="upload-box" style={{ opacity: canUpload ? 1 : 0.5, pointerEvents: canUpload ? 'auto' : 'none' }}>
                 <Upload size={48} color="var(--accent-color)" style={{ marginBottom: '16px' }} />
                 <h3 style={{ marginBottom: '8px' }}>Drop your video file here</h3>
@@ -86,7 +112,10 @@ export default function Home() {
                 
                 <input 
                   type="file" 
-                  onChange={handleFileChange} 
+                  onChange={(e) => {
+                    handleFileChange(e);
+                    if (e.target.files.length > 0) setUrlStr(''); // clear URL if file picked
+                  }} 
                   accept="video/*"
                   disabled={!canUpload}
                   style={{
@@ -101,12 +130,20 @@ export default function Home() {
                   Ready to process: {file.name} ({(file.size / (1024 * 1024)).toFixed(1)} MB)
                 </div>
               )}
+              {urlStr && (
+                <div style={{ marginBottom: '24px', color: 'var(--accent-color)', fontWeight: 'bold' }}>
+                  Ready to process URL!
+                </div>
+              )}
 
               <button 
                 className="neu-btn-primary" 
-                onClick={startProcessing} 
-                disabled={!canUpload && !isAdmin}
-                style={{ width: '100%', padding: '16px', fontSize: '1.1rem', opacity: canUpload || isAdmin ? 1 : 0.5 }}
+                onClick={() => {
+                  if (urlStr) startProcessingUrl(urlStr);
+                  else startProcessing();
+                }} 
+                disabled={(!canUpload && !isAdmin) || (!file && !urlStr)}
+                style={{ width: '100%', padding: '16px', fontSize: '1.1rem', opacity: ((canUpload || isAdmin) && (file || urlStr)) ? 1 : 0.5 }}
               >
                 <PlayCircle size={24} /> Generate Clips
               </button>
