@@ -81,13 +81,14 @@ export default function Home() {
             <>
               <div className="upload-box" style={{ opacity: canUpload ? 1 : 0.5, pointerEvents: canUpload ? 'auto' : 'none' }}>
                 <Upload size={48} color="var(--accent-color)" style={{ marginBottom: '16px' }} />
-                <h3 style={{ marginBottom: '8px' }}>Drop your video file here</h3>
+                <h2 style={{ marginBottom: '8px' }}>Drop your video file here</h2>
                 <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.875rem' }}>MP4, MOV, or WEBM up to unlimited size</p>
                 
                 <input 
                   type="file" 
                   onChange={handleFileChange} 
                   accept="video/*"
+                  aria-label="Upload video file"
                   disabled={!canUpload}
                   style={{
                     position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: canUpload ? 'pointer' : 'not-allowed'
@@ -123,7 +124,7 @@ export default function Home() {
             <div style={{ padding: '20px 0' }}>
               <Loader2 className="spinner" style={{ margin: '0 auto', marginBottom: '24px', width: '48px', height: '48px', display: 'block' }} />
               
-              <h3 style={{ marginBottom: '8px' }} className="kinetic-text">{progressText}</h3>
+              <h2 style={{ marginBottom: '8px', fontSize: '1.5rem', fontWeight: 'bold' }} className="kinetic-text">{progressText}</h2>
               {speedText && <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '24px' }}>{speedText}</p>}
               
               <div style={{ 

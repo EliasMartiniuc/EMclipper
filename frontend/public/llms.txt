@@ -1,0 +1,21 @@
+# EMclipper
+AI that turns long videos into viral shorts in seconds.
+
+## Overview
+EMclipper is an AI-powered video editing platform designed for podcasters, vloggers, and content creators. It automatically analyzes your long-form videos (MP4, MOV, WEBM), finds the most engaging highlights, and generates TikTok-ready or YouTube Shorts-ready clips.
+
+## Features
+- Upload unlimited size videos
+- Automated highlight detection
+- Dynamic caption generation
+- One-click export for social media
+
+## Tech Stack
+- Frontend: React, Vite, Tailwind-like styling
+- Backend: Python, FastAPI
+- Database/Auth: Supabase
+- Payments: Stripe
+- Hosting: Google Cloud Run & Cloudflare
+
+## Contact
+Support: contact@emclipper.com
