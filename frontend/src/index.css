@@ -252,8 +252,6 @@ h1, h2, h3, h4 {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: bgPan 5s infinite alternate ease-in-out;
-  background-size: 200% 200%;
 }
 
 .sub-card {
@@ -263,11 +261,6 @@ h1, h2, h3, h4 {
   transform: translateY(-8px);
   box-shadow: 0 20px 40px rgba(138,122,237,0.15), var(--neu-shadow);
   border-color: rgba(138,122,237,0.3);
-}
-
-@keyframes bgPan {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 100% 50%; }
 }
 
 /* Utilities */

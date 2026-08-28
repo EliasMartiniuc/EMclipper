@@ -1,16 +1,16 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Video, LayoutDashboard, CreditCard, LogIn, UserPlus } from 'lucide-react';
-import Home from './pages/Home';
-import Projects from './pages/Projects';
-import ProjectDetail from './pages/ProjectDetail';
-import Subscription from './pages/Subscription';
-import Auth from './pages/Auth';
-import AuthCallback from './pages/AuthCallback';
-import Settings from './pages/Settings';
-import Terms from './pages/Terms';
-import Privacy from './pages/Privacy';
-import Contact from './pages/Contact';
+const Home = React.lazy(() => import('./pages/Home'));
+const Projects = React.lazy(() => import('./pages/Projects'));
+const ProjectDetail = React.lazy(() => import('./pages/ProjectDetail'));
+const Subscription = React.lazy(() => import('./pages/Subscription'));
+const Auth = React.lazy(() => import('./pages/Auth'));
+const AuthCallback = React.lazy(() => import('./pages/AuthCallback'));
+const Settings = React.lazy(() => import('./pages/Settings'));
+const Terms = React.lazy(() => import('./pages/Terms'));
+const Privacy = React.lazy(() => import('./pages/Privacy'));
+const Contact = React.lazy(() => import('./pages/Contact'));
 import { UploadProvider, useUpload } from './UploadContext';
 import { AuthProvider, useAuth } from './AuthContext';
 import { LogOut, Menu, X, User, Settings as SettingsIcon, MessageSquare } from 'lucide-react';
@@ -82,7 +82,7 @@ function Navbar() {
         <div>
           <Link to="/" style={{ textDecoration: 'none', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div className="neu-box" style={{ padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}>
-              <img src="/logo.png" alt="EMclipper Logo" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover' }} />
+              <img src="/logo.webp" alt="EMclipper Logo" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover' }} />
             </div>
             <h2 className="desktop-only" style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>EMclipper</h2>
           </Link>
@@ -360,7 +360,7 @@ function Footer() {
     }}>
       {/* Logo & Brand */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <img src="/logo.png" alt="EMclipper Logo" style={{ width: '32px', height: '32px' }} />
+        <img src="/logo.webp" alt="EMclipper Logo" style={{ width: '32px', height: '32px' }} />
         <span style={{ fontSize: '1.25rem', fontWeight: '800', letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
           EMclipper
         </span>
@@ -403,19 +403,28 @@ function App() {
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
             <Navbar />
             <main className="container" style={{ flex: 1, paddingBottom: '120px', width: '100%', minHeight: '100vh' }}>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/projects" element={<Projects />} />
-                <Route path="/projects/:videoId" element={<ProjectDetail />} />
-                <Route path="/subscription" element={<Subscription />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/login" element={<Auth type="login" />} />
-                <Route path="/signup" element={<Auth type="signup" />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route path="/privacy" element={<Privacy />} />
-              </Routes>
+              <Suspense fallback={
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', flexDirection: 'column', gap: '16px' }}>
+                  <div className="neu-box" style={{ padding: '24px', borderRadius: '50%', animation: 'pulse 2s infinite' }}>
+                    <Video size={32} color="var(--accent-color)" />
+                  </div>
+                  <p style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Loading...</p>
+                </div>
+              }>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/projects" element={<Projects />} />
+                  <Route path="/projects/:videoId" element={<ProjectDetail />} />
+                  <Route path="/subscription" element={<Subscription />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/contact" element={<Contact />} />
+                  <Route path="/login" element={<Auth type="login" />} />
+                  <Route path="/signup" element={<Auth type="signup" />} />
+                  <Route path="/auth/callback" element={<AuthCallback />} />
+                  <Route path="/terms" element={<Terms />} />
+                  <Route path="/privacy" element={<Privacy />} />
+                </Routes>
+              </Suspense>
             </main>
             <Footer />
           </div>

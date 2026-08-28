@@ -465,6 +465,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def add_cache_headers(request, call_next):
+    response = await call_next(request)
+    # Cache static assets for 1 year to dramatically improve PageSpeed Insights
+    if request.url.path.startswith("/assets/") or request.url.path.endswith((".webp", ".png", ".ico", ".svg")):
+        response.headers["Cache-Control"] = "public, max-age=31536000"
+    return response
 
 # ─── API Endpoints ─────────────────────────────────────────────────────────────
 
