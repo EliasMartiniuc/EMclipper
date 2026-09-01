@@ -20,6 +20,7 @@ Run:
 import uuid
 import json
 import base64
+import urllib.request
 import asyncio
 import logging
 import threading
@@ -34,7 +35,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 import stripe
@@ -1124,13 +1125,23 @@ async def download_clip(job_id: str, filename: str):
 
 @app.get("/api/download_proxy")
 async def download_proxy(url: str, filename: str = "clip.mp4"):
-    """Proxy external video URLs to force download in the browser."""
+    """Proxy R2 video URLs to force download in the browser."""
     import urllib.request
+    from urllib.parse import urlparse
     
-    # Basic security check
-    if not url.startswith("http"):
-        raise HTTPException(status_code=400, detail="Invalid URL")
-        
+    # SECURITY: Only allow proxying from our own R2 CDN domain
+    parsed = urlparse(url)
+    allowed_hosts = [
+        "pub-e155a14c4f4c4b0abdda4681977c0a83.r2.dev",
+    ]
+    if parsed.hostname not in allowed_hosts:
+        raise HTTPException(status_code=403, detail="Forbidden: URL domain not allowed")
+
+    # Sanitize filename to prevent header injection
+    safe_filename = "".join(c for c in filename if c.isalnum() or c in "._- ").strip()
+    if not safe_filename:
+        safe_filename = "clip.mp4"
+
     def iter_file():
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         try:
@@ -1141,7 +1152,7 @@ async def download_proxy(url: str, filename: str = "clip.mp4"):
             logger.error(f"Download proxy failed for {url}: {str(e)}")
             
     headers = {
-        "Content-Disposition": f'attachment; filename="{filename}"'
+        "Content-Disposition": f'attachment; filename="{safe_filename}"'
     }
     return StreamingResponse(iter_file(), media_type="video/mp4", headers=headers)
 
