@@ -22,6 +22,7 @@ import json
 import base64
 import asyncio
 import logging
+import subprocess
 import threading
 import boto3
 import ctypes
@@ -405,7 +406,8 @@ def process_video_stateless(job: Job):
                 video_url = None
                 logger.warning("No S3 client configured, skipping R2 upload.")
             
-            clip_transcript = " ".join(w.word for w in clip_words).strip() if 'clip_words' in locals() else ""
+            clip_words = [w for w in all_words if w.end >= highlight.start_time and w.start <= highlight.end_time]
+            clip_transcript = " ".join(w.word for w in clip_words).strip()
             
             clip_result = {
                 "index": clip_idx,
