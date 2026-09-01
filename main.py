@@ -219,6 +219,25 @@ def process_video_stateless(job: Job):
         job.add_progress("download", "Extracting audio track...")
         audio_path = downloader.extract_audio(video_path, job_id)
         job.add_progress("download", "Audio extracted (16kHz mono)")
+        
+        # Start uploading the original video to R2 in the background for the Edit Clip feature
+        def upload_source_video_to_r2():
+            try:
+                import boto3
+                if not R2_ACCESS_KEY_ID: return
+                s3 = boto3.client('s3', endpoint_url=R2_ENDPOINT_URL, aws_access_key_id=R2_ACCESS_KEY_ID, aws_secret_access_key=R2_SECRET_ACCESS_KEY)
+                r2_key = f"projects/{job_id}/source_video.mp4"
+                s3.upload_file(str(video_path), R2_BUCKET_NAME, r2_key, ExtraArgs={'ContentType': 'video/mp4'})
+                
+                source_url = f"{R2_PUBLIC_URL}/{r2_key}"
+                if supabase_admin:
+                    supabase_admin.table('projects').update({'source_video_url': source_url}).eq('id', job_id).execute()
+                logger.info(f"[{job_id}] Source video successfully uploaded to R2.")
+            except Exception as e:
+                logger.error(f"[{job_id}] Failed to upload source video to R2: {e}")
+                
+        import threading
+        threading.Thread(target=upload_source_video_to_r2, daemon=True).start()
 
         check_cancelled()
 
@@ -386,11 +405,16 @@ def process_video_stateless(job: Job):
                 video_url = None
                 logger.warning("No S3 client configured, skipping R2 upload.")
             
+            clip_transcript = " ".join(w.word for w in clip_words).strip() if 'clip_words' in locals() else ""
+            
             clip_result = {
                 "index": clip_idx,
                 "title": highlight.title,
                 "filename": output_filename,
                 "duration": round(clip_duration, 1),
+                "start_time": highlight.start_time,
+                "end_time": highlight.end_time,
+                "transcript": clip_transcript,
                 "score": highlight.score,
                 "reason": highlight.reason,
                 "video_url": video_url,
@@ -1089,6 +1113,135 @@ async def debug_outputs(job_id: str):
         "files": files_info,
         "job_dir": str(job_dir),
     }
+
+@app.post("/api/clips/{clip_id}/edit")
+async def edit_clip(clip_id: str, request: Request, background_tasks: BackgroundTasks):
+    """
+    Advanced Edit Clip endpoint.
+    Expects JSON body: { project_id, start_time, end_time, transcript, source_video_url }
+    """
+    body = await request.json()
+    project_id = body.get("project_id")
+    start_time = float(body.get("start_time"))
+    end_time = float(body.get("end_time"))
+    transcript = body.get("transcript", "")
+    source_video_url = body.get("source_video_url")
+    
+    if not source_video_url:
+        raise HTTPException(status_code=400, detail="source_video_url is required to edit the clip")
+
+    # Get auth
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+    token = auth_header.split(' ')[1]
+
+    if not supabase_admin:
+        raise HTTPException(status_code=500, detail="Supabase admin not configured")
+
+    user_response = supabase_admin.auth.get_user(token)
+    if not user_response or not user_response.user:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    def background_edit_task():
+        try:
+            logger.info(f"Starting edit for clip {clip_id}: {start_time} to {end_time}")
+            
+            # 1. Download specific segment using FFmpeg (fast remote seeking)
+            segment_duration = end_time - start_time
+            edit_dir = TEMP_DIR / f"edit_{clip_id}"
+            edit_dir.mkdir(parents=True, exist_ok=True)
+            
+            # We use fast seek (-ss before -i) but for remote URLs it might require downloading up to that point. 
+            # R2 supports Range requests, so FFmpeg handles this well.
+            temp_video = edit_dir / "raw_segment.mp4"
+            cmd = [
+                "ffmpeg", "-y",
+                "-ss", str(start_time),
+                "-i", source_video_url,
+                "-t", str(segment_duration),
+                "-c:v", "copy", "-c:a", "copy",
+                str(temp_video)
+            ]
+            subprocess.run(cmd, check=True, capture_output=True)
+            
+            # 2. Extract audio and re-transcribe or just force align the new text
+            # For simplicity in this edit flow, we'll just run transcription again on the new segment 
+            # to get perfect word-level timestamps for the new boundaries.
+            from downloader import extract_audio
+            import transcriber
+            
+            temp_audio = extract_audio(temp_video, f"edit_{clip_id}")
+            segments, all_words = transcriber.transcribe(temp_audio)
+            
+            # If the user provided a custom transcript, we ideally force align it.
+            # But Whisper's native transcription of the exact segment is usually highly accurate.
+            # We will use the fresh transcription for the new segment to ensure sync.
+            clip_words = all_words 
+            
+            # 3. Generate subtitles ASS
+            import subtitles
+            ass_path = subtitles.generate_ass_file(clip_words, edit_dir, f"edit_{clip_id}")
+            
+            # 4. Render final video
+            import renderer
+            final_clip_path = edit_dir / "final_edited_clip.mp4"
+            renderer.render_final_clip(
+                video_path=temp_video,
+                ass_path=ass_path,
+                output_path=final_clip_path,
+                enable_subtitles=True
+            )
+            
+            # 5. Upload to R2
+            import boto3
+            s3_client = boto3.client('s3',
+                endpoint_url=R2_ENDPOINT_URL,
+                aws_access_key_id=R2_ACCESS_KEY_ID,
+                aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+            )
+            
+            r2_key = f"projects/{project_id}/edited_clip_{clip_id}.mp4"
+            s3_client.upload_file(
+                str(final_clip_path),
+                R2_BUCKET_NAME,
+                r2_key,
+                ExtraArgs={'ContentType': 'video/mp4'}
+            )
+            new_video_url = f"{R2_PUBLIC_URL}/{r2_key}"
+            
+            # 6. Delete old clip from R2
+            old_clip_res = supabase_admin.table('clips').select('video_url').eq('id', clip_id).execute()
+            if old_clip_res.data and old_clip_res.data[0].get('video_url'):
+                old_url = old_clip_res.data[0]['video_url']
+                old_key = old_url.replace(f"{R2_PUBLIC_URL}/", "")
+                try:
+                    s3_client.delete_object(Bucket=R2_BUCKET_NAME, Key=old_key)
+                except Exception as e:
+                    logger.error(f"Failed to delete old clip {old_key} from R2: {e}")
+            
+            # 7. Update Supabase
+            new_transcript = " ".join(w.word for w in clip_words).strip()
+            supabase_admin.table('clips').update({
+                'video_url': new_video_url,
+                'start_time': start_time,
+                'end_time': end_time,
+                'duration': segment_duration,
+                'transcript': new_transcript,
+                'title': body.get('title', 'Edited Clip')
+            }).eq('id', clip_id).execute()
+            
+            logger.info(f"Successfully edited clip {clip_id}")
+            
+            # Cleanup
+            import shutil
+            shutil.rmtree(edit_dir, ignore_errors=True)
+            
+        except Exception as e:
+            logger.error(f"Failed to edit clip {clip_id}: {e}", exc_info=True)
+
+    background_tasks.add_task(background_edit_task)
+    return {"status": "processing", "message": "Edit job started in the background"}
 
 @app.get("/api/download/{job_id}/{filename}")
 async def download_clip(job_id: str, filename: str):

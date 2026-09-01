@@ -288,7 +288,10 @@ export function UploadProvider({ children }) {
                   title: clipMeta.title,
                   video_url: clipMeta.video_url,
                   score: clipMeta.score,
-                  duration: clipMeta.duration
+                  duration: clipMeta.duration,
+                  start_time: clipMeta.start_time,
+                  end_time: clipMeta.end_time,
+                  transcript: clipMeta.transcript
                 });
                 
                 if (clipError) {

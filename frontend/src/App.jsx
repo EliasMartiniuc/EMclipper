@@ -11,6 +11,7 @@ const Settings = React.lazy(() => import('./pages/Settings'));
 const Terms = React.lazy(() => import('./pages/Terms'));
 const Privacy = React.lazy(() => import('./pages/Privacy'));
 const Contact = React.lazy(() => import('./pages/Contact'));
+const EditClip = React.lazy(() => import('./pages/EditClip'));
 import { UploadProvider, useUpload } from './UploadContext';
 import { AuthProvider, useAuth } from './AuthContext';
 import { LogOut, Menu, X, User, Settings as SettingsIcon, MessageSquare } from 'lucide-react';
@@ -414,6 +415,7 @@ function App() {
                   <Route path="/" element={<Home />} />
                   <Route path="/projects" element={<Projects />} />
                   <Route path="/projects/:videoId" element={<ProjectDetail />} />
+                  <Route path="/edit/:clipId" element={<EditClip />} />
                   <Route path="/subscription" element={<Subscription />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/contact" element={<Contact />} />
