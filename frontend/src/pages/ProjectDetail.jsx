@@ -48,14 +48,9 @@ const ClipCard = ({ clip }) => {
       </div>
 
       <div style={{ display: 'flex', gap: '12px' }}>
-        <button onClick={handleDownload} className="neu-btn-primary" style={{ flex: 1, padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+        <button onClick={handleDownload} className="neu-btn-primary" style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
           <Download size={18} /> Download
         </button>
-        <Link to={`/edit/${clip.id}`} style={{ textDecoration: 'none', flex: 1 }}>
-          <button className="neu-btn" style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <Edit3 size={18} /> Edit Clip
-          </button>
-        </Link>
       </div>
     </div>
   );

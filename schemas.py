@@ -68,9 +68,6 @@ class ClipResult(BaseModel):
     output_path: str
     filename: str
     duration: float
-    start_time: float = 0.0
-    end_time: float = 0.0
-    transcript: str = ""
     score: float = 0.0
 
 
