@@ -1176,14 +1176,36 @@ async def edit_clip(clip_id: str, request: Request, background_tasks: Background
             temp_audio = extract_audio(temp_video, f"edit_{clip_id}")
             segments, all_words = transcriber.transcribe(temp_audio)
             
-            # If the user provided a custom transcript, we ideally force align it.
-            # But Whisper's native transcription of the exact segment is usually highly accurate.
-            # We will use the fresh transcription for the new segment to ensure sync.
-            clip_words = all_words 
+            # If the user provided a custom transcript, we align it to the Whisper timestamps proportionally
+            user_words = transcript.split() if transcript else []
+            whisper_words = all_words
             
-            # 3. Generate subtitles ASS
+            clip_words = []
+            if user_words and whisper_words:
+                from schemas import TranscriptWord
+                for i, text in enumerate(user_words):
+                    idx = int((i / len(user_words)) * len(whisper_words))
+                    start = whisper_words[idx].start
+                    
+                    next_idx = int(((i + 1) / len(user_words)) * len(whisper_words))
+                    if next_idx < len(whisper_words):
+                        end = whisper_words[next_idx].start
+                    else:
+                        end = whisper_words[-1].end
+                        
+                    clip_words.append(TranscriptWord(word=text, start=start, end=end))
+            else:
+                clip_words = whisper_words
+            
+            # 3. Generate subtitles ASS (timestamps start from 0 relative to the new sliced segment)
             import subtitles
-            ass_path = subtitles.generate_ass_file(clip_words, edit_dir, f"edit_{clip_id}")
+            ass_path = edit_dir / f"clip_{clip_id}.ass"
+            subtitles.generate_ass(
+                words=clip_words,
+                clip_start=0.0,
+                clip_end=segment_duration,
+                output_path=ass_path
+            )
             
             # 4. Render final video
             import renderer
