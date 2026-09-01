@@ -9,7 +9,14 @@ const ClipCard = ({ clip }) => {
   const handleDownload = async (e) => {
     e.preventDefault();
     try {
-      // Fetching the file as a blob forces the browser to download instead of open it
+      if (videoUrl.startsWith('http')) {
+        const filename = clip.title ? `${clip.title.replace(/[^a-z0-9]/gi, '_')}.mp4` : 'clip.mp4';
+        const proxyUrl = `/api/download_proxy?url=${encodeURIComponent(videoUrl)}&filename=${encodeURIComponent(filename)}`;
+        window.location.href = proxyUrl;
+        return;
+      }
+      
+      // Fallback for relative local URLs
       const response = await fetch(videoUrl);
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);

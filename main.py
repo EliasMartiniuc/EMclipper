@@ -1114,13 +1114,36 @@ async def download_clip(job_id: str, filename: str):
                 break
                 
     if not clip_path.exists():
-        raise HTTPException(status_code=404, detail=f"Clip file not found: {safe_filename}")
-
+        raise HTTPException(status_code=404, detail="File not found")
+        
     return FileResponse(
-        path=str(clip_path),
-        filename=safe_filename,
+        path=clip_path,
         media_type="video/mp4",
+        filename=filename
     )
+
+@app.get("/api/download_proxy")
+async def download_proxy(url: str, filename: str = "clip.mp4"):
+    """Proxy external video URLs to force download in the browser."""
+    import urllib.request
+    
+    # Basic security check
+    if not url.startswith("http"):
+        raise HTTPException(status_code=400, detail="Invalid URL")
+        
+    def iter_file():
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        try:
+            with urllib.request.urlopen(req) as response:
+                while chunk := response.read(8192):
+                    yield chunk
+        except Exception as e:
+            logger.error(f"Download proxy failed for {url}: {str(e)}")
+            
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"'
+    }
+    return StreamingResponse(iter_file(), media_type="video/mp4", headers=headers)
 
 
 # ─── Frontend Serving (SPA Routing) ──────────────────────────────────────────
