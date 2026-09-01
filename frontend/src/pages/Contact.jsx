@@ -56,8 +56,8 @@ export default function Contact() {
   };
 
   return (
-    <div style={{ maxWidth: '600px', margin: '40px auto', padding: '0 24px' }}>
-      <div className="neu-box" style={{ padding: '40px' }}>
+    <div style={{ maxWidth: '600px', margin: 'clamp(24px, 5vw, 40px) auto', padding: '0 clamp(16px, 4vw, 24px)' }}>
+      <div className="neu-box" style={{ padding: 'clamp(24px, 6vw, 40px)' }}>
         <h1 style={{ marginBottom: '16px', fontSize: '2rem', background: 'linear-gradient(135deg, var(--accent-color), #b1a5ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
           Contact Us
         </h1>
