@@ -38,6 +38,13 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 import stripe
+from supabase import create_client
+
+import downloader
+import transcriber
+import llm_agent
+import subtitles
+import renderer
 
 from schemas import JobRequest, JobStatus
 from config import (
@@ -52,7 +59,6 @@ from config import (
 stripe.api_key = STRIPE_SECRET_KEY
 
 # Initialize Supabase client for server-side operations
-from supabase import create_client
 supabase_admin = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 
 # Global dictionary to track active jobs for cancellation
@@ -66,12 +72,6 @@ s3_client = boto3.client(
     aws_secret_access_key=R2_SECRET_ACCESS_KEY,
     region_name="auto" # Cloudflare R2 uses 'auto' region
 ) if R2_ACCESS_KEY_ID else None
-
-import downloader
-import transcriber
-import llm_agent
-import subtitles
-import renderer
 
 # ─── Logging Setup ─────────────────────────────────────────────────────────────
 
