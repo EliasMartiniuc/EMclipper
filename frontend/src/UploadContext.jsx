@@ -84,12 +84,18 @@ export function UploadProvider({ children }) {
     }
   };
 
-  const stopProcessing = () => {
+  const stopProcessing = async () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     if (activeJobId) {
-      fetch(`${API}/api/cancel/${activeJobId}`, { method: 'POST' }).catch(() => {});
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = session ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+        fetch(`${API}/api/cancel/${activeJobId}`, { method: 'POST', headers }).catch(() => {});
+      } catch {
+        fetch(`${API}/api/cancel/${activeJobId}`, { method: 'POST' }).catch(() => {});
+      }
     }
     setIsProcessing(false);
     setActiveJobId(null);
@@ -152,6 +158,9 @@ export function UploadProvider({ children }) {
       const totalChunks = Math.ceil(file.size / chunkSize);
       const startTime = Date.now();
 
+      const { data: { session: uploadSession } } = await supabase.auth.getSession();
+      const authHeaders = uploadSession ? { 'Authorization': `Bearer ${uploadSession.access_token}` } : {};
+
       let lastRenderTime = 0;
       for (let i = 0; i < totalChunks; i++) {
         if (signal.aborted) throw new Error("AbortError");
@@ -169,6 +178,7 @@ export function UploadProvider({ children }) {
         
         const uploadRes = await fetch(`${API}/api/upload_chunk`, {
           method: 'POST',
+          headers: authHeaders,
           body: chunkData,
           signal
         });
@@ -226,6 +236,7 @@ export function UploadProvider({ children }) {
 
       const response = await fetch(`${API}/api/process_stream`, {
         method: 'POST',
+        headers: authHeaders,
         body: formData,
         signal
       });

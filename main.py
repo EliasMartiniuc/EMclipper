@@ -457,10 +457,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Allow CORS for local development
+# CORS — locked to production and local dev origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://emclipper.com", "http://localhost:5173", "http://localhost:8000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -474,10 +474,24 @@ async def add_cache_headers(request, call_next):
         response.headers["Cache-Control"] = "public, max-age=31536000"
     return response
 
+
+async def get_authenticated_user(request: Request):
+    """Extract and verify user from Supabase JWT. Raises 401 if invalid."""
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    token = auth_header.split(' ')[1]
+    try:
+        user_response = supabase_admin.auth.get_user(token)
+        return user_response.user
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
 # ─── API Endpoints ─────────────────────────────────────────────────────────────
 
 @app.post("/api/upload_chunk")
 async def upload_chunk(
+    request: Request,
     job_id: str = Form(...),
     chunk_index: int = Form(...),
     total_chunks: int = Form(...),
@@ -488,6 +502,8 @@ async def upload_chunk(
     Receive a chunk of a video file and append it to the temporary file on disk.
     Allows bypassing Cloud Run's 32MB request body limit.
     """
+    await get_authenticated_user(request)
+
     # Sanitize filename
     safe_filename = "".join(c for c in filename if c.isalnum() or c in (".", "-", "_")).strip()
     if not safe_filename:
@@ -510,6 +526,7 @@ async def upload_chunk(
 
 @app.post("/api/process_stream")
 async def process_stream(
+    request: Request,
     url: str = Form(""), 
     subtitles_enabled: bool = Form(True),
     job_id: str = Form(""),
@@ -519,6 +536,8 @@ async def process_stream(
     Stream real-time progress updates via Server-Sent Events (SSE).
     This handles the processing request completely statelessly via POST.
     """
+    await get_authenticated_user(request)
+
     url = url.strip()
     job_id = job_id.strip()
     
@@ -627,8 +646,10 @@ async def process_stream(
 
 
 @app.post("/api/cancel/{job_id}")
-async def cancel_job(job_id: str):
+async def cancel_job(job_id: str, request: Request):
     """Explicitly cancel a job and kill its processes."""
+    await get_authenticated_user(request)
+
     # 1. Cancel locally if the job is on this instance
     job = active_jobs.get(job_id)
     if job:
@@ -654,8 +675,16 @@ async def cancel_job(job_id: str):
     return {"status": "cancelled"}
 
 @app.delete("/api/project/{project_id}")
-async def delete_project_files(project_id: str):
+async def delete_project_files(project_id: str, request: Request):
     """Delete all files associated with a project from Cloudflare R2."""
+    user = await get_authenticated_user(request)
+
+    # Verify ownership — only the project owner can delete it
+    if supabase_admin:
+        result = supabase_admin.table('projects').select('user_id').eq('id', project_id).execute()
+        if result.data and result.data[0].get('user_id') != user.id:
+            raise HTTPException(status_code=403, detail="Not your project")
+
     # Clips are stored at {project_id}/filename.mp4
     # Cancel markers are stored at jobs/{project_id}/CANCELLED
     prefixes = [f"{project_id}/", f"jobs/{project_id}/"]
@@ -1039,7 +1068,10 @@ async def stripe_webhook(request: Request):
 
 
 @app.get("/api/debug/info")
-async def debug_info():
+async def debug_info(request: Request):
+    user = await get_authenticated_user(request)
+    if user.email != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Admin only")
     """Global debug endpoint: provides container diagnostics, active jobs, and files."""
     import socket
     import shutil
@@ -1061,7 +1093,10 @@ async def debug_info():
     }
 
 @app.get("/api/debug/outputs/{job_id}")
-async def debug_outputs(job_id: str):
+async def debug_outputs(job_id: str, request: Request):
+    user = await get_authenticated_user(request)
+    if user.email != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Admin only")
     """Debug endpoint: list files in the outputs directory for a specific job."""
     import socket
     job_dir = OUTPUTS_DIR / job_id
