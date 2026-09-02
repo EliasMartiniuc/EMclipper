@@ -46,15 +46,16 @@ from config import (
     R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT_URL, R2_BUCKET_NAME, R2_PUBLIC_URL,
     STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRO_PRICE_ID, STRIPE_ULTRA_PRICE_ID,
     FREE_UPLOAD_LIMIT, PRO_UPLOAD_LIMIT, ULTRA_UPLOAD_LIMIT, ADMIN_EMAIL,
-    SUPABASE_URL, SUPABASE_KEY,
+    SUPABASE_URL, SUPABASE_KEY, SUPABASE_SERVICE_ROLE_KEY,
 )
 
 # Initialize Stripe
 stripe.api_key = STRIPE_SECRET_KEY
 
-# Initialize Supabase client for server-side operations
+# Initialize Supabase client for server-side operations (uses service_role key to bypass RLS)
 from supabase import create_client
-supabase_admin = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
+_backend_supabase_key = SUPABASE_SERVICE_ROLE_KEY or SUPABASE_KEY
+supabase_admin = create_client(SUPABASE_URL, _backend_supabase_key) if SUPABASE_URL and _backend_supabase_key else None
 
 # Global dictionary to track active jobs for cancellation
 active_jobs = {}

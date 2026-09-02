@@ -8,17 +8,19 @@ from config import (
     STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, 
     STRIPE_PRO_PRICE_ID, STRIPE_ULTRA_PRICE_ID,
     FREE_UPLOAD_LIMIT, PRO_UPLOAD_LIMIT, ULTRA_UPLOAD_LIMIT,
-    ADMIN_EMAIL, SUPABASE_URL, SUPABASE_KEY
+    ADMIN_EMAIL, SUPABASE_URL, SUPABASE_KEY, SUPABASE_SERVICE_ROLE_KEY
 )
 
 logger = logging.getLogger('subscriptions')
 
 stripe.api_key = STRIPE_SECRET_KEY
 
+_backend_key = SUPABASE_SERVICE_ROLE_KEY or SUPABASE_KEY
+
 def get_supabase_headers():
     return {
-        'apikey': SUPABASE_KEY,
-        'Authorization': f'Bearer {SUPABASE_KEY}',
+        'apikey': _backend_key,
+        'Authorization': f'Bearer {_backend_key}',
         'Content-Type': 'application/json',
         'Prefer': 'return=representation'
     }
