@@ -143,4 +143,7 @@ def render_short(
 def _escape_ffmpeg_path(path: str) -> str:
     escaped = path.replace("\\", "/")
     escaped = escaped.replace(":", "\\:")
+    escaped = escaped.replace("'", "\\'")
+    escaped = escaped.replace("[", "\\[")
+    escaped = escaped.replace("]", "\\]")
     return escaped

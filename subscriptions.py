@@ -29,8 +29,8 @@ def check_upload_limit(user_id: str, email: str = '') -> dict:
     if email.lower() == ADMIN_EMAIL.lower() and email != '':
         return {'can_upload': True, 'tier': 'admin', 'remaining': 9999, 'limit': 9999}
 
-    url = f'{SUPABASE_URL}/rest/v1/user_subscriptions?user_id=eq.{user_id}'
-    resp = requests.get(url, headers=get_supabase_headers())
+    url = f'{SUPABASE_URL}/rest/v1/user_subscriptions'
+    resp = requests.get(url, headers=get_supabase_headers(), params={'user_id': f'eq.{user_id}'})
     
     if resp.status_code != 200:
         logger.error(f'Supabase error: {resp.text}')
@@ -69,14 +69,12 @@ def check_upload_limit(user_id: str, email: str = '') -> dict:
     }
 
 def increment_upload_count(user_id: str):
-    url = f'{SUPABASE_URL}/rest/v1/user_subscriptions?user_id=eq.{user_id}'
-    resp = requests.get(url, headers=get_supabase_headers())
+    url = f'{SUPABASE_URL}/rest/v1/user_subscriptions'
+    resp = requests.get(url, headers=get_supabase_headers(), params={'user_id': f'eq.{user_id}'})
     if resp.status_code == 200 and resp.json():
         sub = resp.json()[0]
         used = sub.get('uploads_used', 0)
-        
-        patch_url = f'{SUPABASE_URL}/rest/v1/user_subscriptions?user_id=eq.{user_id}'
-        requests.patch(patch_url, headers=get_supabase_headers(), json={'uploads_used': used + 1})
+        requests.patch(url, headers=get_supabase_headers(), params={'user_id': f'eq.{user_id}'}, json={'uploads_used': used + 1})
 
 def handle_stripe_webhook(payload: bytes, sig_header: str) -> dict:
     try:
@@ -102,9 +100,9 @@ def handle_stripe_webhook(payload: bytes, sig_header: str) -> dict:
         if price_id == STRIPE_PRO_PRICE_ID: tier = 'pro'
         elif price_id == STRIPE_ULTRA_PRICE_ID: tier = 'ultra'
             
-        patch_url = f'{SUPABASE_URL}/rest/v1/user_subscriptions?user_id=eq.{user_id}'
-        get_url = f'{SUPABASE_URL}/rest/v1/user_subscriptions?user_id=eq.{user_id}'
-        existing = requests.get(get_url, headers=get_supabase_headers()).json()
+        url = f'{SUPABASE_URL}/rest/v1/user_subscriptions'
+        existing_resp = requests.get(url, headers=get_supabase_headers(), params={'user_id': f'eq.{user_id}'})
+        existing = existing_resp.json() if existing_resp.status_code == 200 else []
         
         payload = {
             'tier': tier,
@@ -116,21 +114,22 @@ def handle_stripe_webhook(payload: bytes, sig_header: str) -> dict:
         }
         
         if existing:
-            requests.patch(patch_url, headers=get_supabase_headers(), json=payload)
+            requests.patch(url, headers=get_supabase_headers(), params={'user_id': f'eq.{user_id}'}, json=payload)
         else:
             payload['user_id'] = user_id
-            requests.post(f'{SUPABASE_URL}/rest/v1/user_subscriptions', headers=get_supabase_headers(), json=payload)
+            requests.post(url, headers=get_supabase_headers(), json=payload)
             
     elif event['type'] == 'invoice.payment_succeeded':
         invoice = event['data']['object']
         subscription_id = invoice.get('subscription')
         
         if subscription_id:
-            url = f'{SUPABASE_URL}/rest/v1/user_subscriptions?stripe_subscription_id=eq.{subscription_id}'
-            existing = requests.get(url, headers=get_supabase_headers()).json()
+            url = f'{SUPABASE_URL}/rest/v1/user_subscriptions'
+            existing_resp = requests.get(url, headers=get_supabase_headers(), params={'stripe_subscription_id': f'eq.{subscription_id}'})
+            existing = existing_resp.json() if existing_resp.status_code == 200 else []
             if existing:
                 sub = stripe.Subscription.retrieve(subscription_id)
-                requests.patch(url, headers=get_supabase_headers(), json={
+                requests.patch(url, headers=get_supabase_headers(), params={'stripe_subscription_id': f'eq.{subscription_id}'}, json={
                     'uploads_used': 0,
                     'period_start': datetime.fromtimestamp(sub['current_period_start']).isoformat(),
                     'period_end': datetime.fromtimestamp(sub['current_period_end']).isoformat(),
@@ -138,8 +137,8 @@ def handle_stripe_webhook(payload: bytes, sig_header: str) -> dict:
                 
     elif event['type'] == 'customer.subscription.deleted':
         subscription_id = event['data']['object']['id']
-        url = f'{SUPABASE_URL}/rest/v1/user_subscriptions?stripe_subscription_id=eq.{subscription_id}'
-        requests.patch(url, headers=get_supabase_headers(), json={
+        url = f'{SUPABASE_URL}/rest/v1/user_subscriptions'
+        requests.patch(url, headers=get_supabase_headers(), params={'stripe_subscription_id': f'eq.{subscription_id}'}, json={
             'tier': 'free',
             'stripe_subscription_id': None
         })

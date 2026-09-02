@@ -228,8 +228,9 @@ def _build_karaoke_dialogue_line(
     karaoke_parts = []
 
     for word in word_group:
-        # Uppercase for viral TikTok style
+        # Uppercase for viral TikTok style and sanitize ASS control characters
         clean_word = word.word.strip().upper()
+        clean_word = clean_word.replace("{", "").replace("}", "").replace("\\", "").replace("\n", " ").replace("\r", "")
         if not clean_word:
             continue
 

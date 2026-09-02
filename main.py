@@ -27,7 +27,9 @@ import threading
 import boto3
 import ctypes
 import os
+import re
 import signal
+from urllib.parse import urlparse
 from pathlib import Path
 from typing import Dict, List, Optional
 from datetime import datetime
@@ -458,10 +460,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+ALLOWED_ORIGINS = {
+    "https://emclipper.com",
+    "http://localhost:5173",
+    "http://localhost:8000"
+}
+SAFE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".wmv"}
+
 # CORS — locked to production and local dev origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://emclipper.com", "http://localhost:5173", "http://localhost:8000"],
+    allow_origins=list(ALLOWED_ORIGINS),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -505,23 +515,41 @@ async def upload_chunk(
     """
     await get_authenticated_user(request)
 
-    # Sanitize filename
-    safe_filename = "".join(c for c in filename if c.isalnum() or c in (".", "-", "_")).strip()
+    # Validate job_id format
+    job_id = job_id.strip()
+    if not SAFE_ID_REGEX.match(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job_id format")
+
+    # Validate chunk bounds
+    if chunk_index < 0 or total_chunks <= 0 or chunk_index >= total_chunks or total_chunks > 10000:
+        raise HTTPException(status_code=400, detail="Invalid chunk index parameters")
+
+    # Sanitize filename and validate extension
+    safe_filename = "".join(c for c in Path(filename).name if c.isalnum() or c in (".", "-", "_")).strip()
     if not safe_filename:
         safe_filename = "uploaded_video.mp4"
-        
-    job_temp_dir = TEMP_DIR / job_id
+
+    ext = Path(safe_filename).suffix.lower()
+    if ext not in ALLOWED_VIDEO_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Unsupported video format")
+
+    job_temp_dir = (TEMP_DIR / job_id).resolve()
+    temp_dir_resolved = TEMP_DIR.resolve()
+    if not str(job_temp_dir).startswith(str(temp_dir_resolved)):
+        raise HTTPException(status_code=400, detail="Invalid path traversal detected")
+
     job_temp_dir.mkdir(parents=True, exist_ok=True)
-    
-    video_path = job_temp_dir / safe_filename
-    
+    video_path = (job_temp_dir / safe_filename).resolve()
+    if not str(video_path).startswith(str(job_temp_dir)):
+        raise HTTPException(status_code=400, detail="Invalid file path detected")
+
     # Append the chunk to the file
     with video_path.open("ab") as buffer:
         content = await chunk.read()
         buffer.write(content)
-        
+
     logger.info(f"[{job_id}] Received chunk {chunk_index + 1}/{total_chunks} for {safe_filename} ({len(content)} bytes)")
-    
+
     return {"status": "success", "chunk_index": chunk_index}
 
 
@@ -541,24 +569,35 @@ async def process_stream(
 
     url = url.strip()
     job_id = job_id.strip()
-    
+
     if not url and not job_id:
         raise HTTPException(status_code=400, detail="Must provide either a URL or a chunked upload job_id")
 
+    if job_id and not SAFE_ID_REGEX.match(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job_id format")
+
+    if url:
+        parsed_url = urlparse(url)
+        if parsed_url.scheme not in ("http", "https") or not parsed_url.netloc:
+            raise HTTPException(status_code=400, detail="Invalid video URL format")
+
     if not job_id:
         job_id = str(uuid.uuid4())
-        
+
     job = Job(job_id, url if url else None, subtitles_enabled)
     active_jobs[job_id] = job
-    
+
     if not url and job_id and filename:
         # Check if the chunked file exists
-        safe_filename = "".join(c for c in filename if c.isalnum() or c in (".", "-", "_")).strip()
+        safe_filename = "".join(c for c in Path(filename).name if c.isalnum() or c in (".", "-", "_")).strip()
         if not safe_filename:
             safe_filename = "uploaded_video.mp4"
-            
-        video_path = TEMP_DIR / job_id / safe_filename
-        
+
+        job_temp_dir = (TEMP_DIR / job_id).resolve()
+        video_path = (job_temp_dir / safe_filename).resolve()
+        if not str(video_path).startswith(str(job_temp_dir)):
+            raise HTTPException(status_code=400, detail="Invalid file path")
+
         if video_path.exists():
             job.uploaded_video_path = video_path
             job.video_title = filename
@@ -566,7 +605,7 @@ async def process_stream(
         else:
             raise HTTPException(status_code=400, detail="Uploaded file not found on server")
     elif url:
-        logger.info(f"[{job_id}] Processing YouTube URL: {url}")
+        logger.info(f"[{job_id}] Processing video URL: {url}")
 
     queue = asyncio.Queue()
     loop = asyncio.get_running_loop()
@@ -651,6 +690,10 @@ async def cancel_job(job_id: str, request: Request):
     """Explicitly cancel a job and kill its processes."""
     await get_authenticated_user(request)
 
+    job_id = job_id.strip()
+    if not SAFE_ID_REGEX.match(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job_id format")
+
     # 1. Cancel locally if the job is on this instance
     job = active_jobs.get(job_id)
     if job:
@@ -661,7 +704,7 @@ async def cancel_job(job_id: str, request: Request):
             except Exception:
                 pass
         active_jobs.pop(job_id, None)
-        
+
     # 2. Write a CANCELLED marker to R2 so other instances know it's cancelled
     try:
         if s3_client:
@@ -679,6 +722,10 @@ async def cancel_job(job_id: str, request: Request):
 async def delete_project_files(project_id: str, request: Request):
     """Delete all files associated with a project from Cloudflare R2."""
     user = await get_authenticated_user(request)
+
+    project_id = project_id.strip()
+    if not SAFE_ID_REGEX.match(project_id):
+        raise HTTPException(status_code=400, detail="Invalid project_id format")
 
     # Verify ownership — only the project owner can delete it
     if supabase_admin:
@@ -915,11 +962,12 @@ async def create_checkout_session(request: Request):
             except Exception as e:
                 logger.error(f"Failed to save stripe_customer_id to Supabase (check SUPABASE_KEY): {e}")
         
-        # Determine the origin for success/cancel URLs
-        origin = request.headers.get('origin', request.headers.get('referer', 'https://emclipper.com'))
-        if origin.endswith('/'):
-            origin = origin[:-1]
-        
+        # Determine the origin for success/cancel URLs (strictly validated against allowlist)
+        raw_origin = request.headers.get('origin', request.headers.get('referer', 'https://emclipper.com'))
+        if raw_origin.endswith('/'):
+            raw_origin = raw_origin[:-1]
+        origin = raw_origin if raw_origin in ALLOWED_ORIGINS else "https://emclipper.com"
+
         session = stripe.checkout.Session.create(
             customer=customer_id,
             line_items=[{'price': price_id, 'quantity': 1}],
@@ -958,9 +1006,10 @@ async def create_portal_session(request: Request):
     if not customer_id:
         raise HTTPException(status_code=400, detail="No active subscription found.")
         
-    origin = request.headers.get('origin', request.headers.get('referer', 'https://emclipper.com'))
-    if origin.endswith('/'):
-        origin = origin[:-1]
+    raw_origin = request.headers.get('origin', request.headers.get('referer', 'https://emclipper.com'))
+    if raw_origin.endswith('/'):
+        raw_origin = raw_origin[:-1]
+    origin = raw_origin if raw_origin in ALLOWED_ORIGINS else "https://emclipper.com"
         
     try:
         session = stripe.billing_portal.Session.create(
@@ -1130,13 +1179,23 @@ async def debug_outputs(job_id: str, request: Request):
 @app.get("/api/download/{job_id}/{filename}")
 async def download_clip(job_id: str, filename: str):
     """Serve a rendered clip file for download from the stateless temp directory."""
-    job_dir = OUTPUTS_DIR / job_id
+    job_id = job_id.strip()
+    if not SAFE_ID_REGEX.match(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job_id format")
+
+    job_dir = (OUTPUTS_DIR / job_id).resolve()
+    outputs_dir_resolved = OUTPUTS_DIR.resolve()
+    if not str(job_dir).startswith(str(outputs_dir_resolved)):
+        raise HTTPException(status_code=400, detail="Invalid path traversal detected")
+
     if not job_dir.exists():
         raise HTTPException(status_code=404, detail="Job outputs not found on this server instance.")
 
-    # Prevent directory traversal attacks
-    safe_filename = filename.replace("/", "").replace("\\", "")
-    clip_path = job_dir / safe_filename
+    # Prevent directory traversal attacks on filename
+    safe_filename = "".join(c for c in Path(filename).name if c.isalnum() or c in (".", "-", "_")).strip()
+    clip_path = (job_dir / safe_filename).resolve()
+    if not str(clip_path).startswith(str(job_dir)):
+        raise HTTPException(status_code=400, detail="Invalid filename traversal detected")
     
     # Backward compatibility: if the old cached frontend sends an index like "0"
     if not clip_path.exists() and safe_filename.isdigit():
@@ -1156,7 +1215,7 @@ async def download_clip(job_id: str, filename: str):
     return FileResponse(
         path=clip_path,
         media_type="video/mp4",
-        filename=filename
+        filename=safe_filename
     )
 
 @app.get("/api/download_proxy")
