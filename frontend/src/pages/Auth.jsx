@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Mail, Lock, User, Loader2, CheckCircle, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Turnstile } from '@marsidev/react-turnstile';
 import { supabase } from '../supabase';
+
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAAEk1jnwoKvwBTf-G';
 
 export default function Auth({ type }) {
   const isLogin = type === 'login';
@@ -10,10 +13,12 @@ export default function Auth({ type }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [captchaToken, setCaptchaToken] = useState('');
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
 
+  const turnstileRef = useRef(null);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -28,6 +33,7 @@ export default function Auth({ type }) {
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
+          options: captchaToken ? { captchaToken } : undefined,
         });
         if (error) throw error;
         navigate('/projects');
@@ -49,7 +55,8 @@ export default function Auth({ type }) {
           options: {
             data: {
               full_name: name,
-            }
+            },
+            captchaToken: captchaToken || undefined,
           }
         });
         if (error) throw error;
@@ -57,6 +64,9 @@ export default function Auth({ type }) {
       }
     } catch (err) {
       setError(err.message);
+      if (turnstileRef.current) {
+        turnstileRef.current.reset();
+      }
     } finally {
       setLoading(false);
     }
@@ -73,11 +83,15 @@ export default function Auth({ type }) {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: window.location.origin + '/settings',
+        captchaToken: captchaToken || undefined,
       });
       if (error) throw error;
       setForgotSent(true);
     } catch (err) {
       setError(err.message);
+      if (turnstileRef.current) {
+        turnstileRef.current.reset();
+      }
     } finally {
       setLoading(false);
     }
@@ -138,6 +152,18 @@ export default function Auth({ type }) {
                     required
                   />
                 </div>
+
+                <div style={{ display: 'flex', justifyContent: 'center', minHeight: '65px' }}>
+                  <Turnstile
+                    ref={turnstileRef}
+                    siteKey={TURNSTILE_SITE_KEY}
+                    onSuccess={setCaptchaToken}
+                    onError={() => setCaptchaToken('')}
+                    onExpire={() => setCaptchaToken('')}
+                    options={{ theme: 'auto', size: 'flexible' }}
+                  />
+                </div>
+
                 <button type="submit" className="neu-btn-primary" style={{ width: '100%', padding: '16px' }} disabled={loading}>
                   {loading ? <Loader2 className="spinner" size={18} /> : 'Send Reset Link'}
                 </button>
@@ -208,6 +234,17 @@ export default function Auth({ type }) {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'center', minHeight: '65px' }}>
+                <Turnstile
+                  ref={turnstileRef}
+                  siteKey={TURNSTILE_SITE_KEY}
+                  onSuccess={setCaptchaToken}
+                  onError={() => setCaptchaToken('')}
+                  onExpire={() => setCaptchaToken('')}
+                  options={{ theme: 'auto', size: 'flexible' }}
                 />
               </div>
 
