@@ -19,7 +19,8 @@ export default function Projects() {
       const { data, error } = await supabase
         .from('projects')
         .select('*, clips(video_url)')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
         
       if (error) {
         console.error("Error fetching projects:", error);

@@ -28,6 +28,7 @@ import boto3
 import ctypes
 import os
 import re
+import time
 import signal
 from urllib.parse import urlparse
 from pathlib import Path
@@ -100,10 +101,19 @@ class Job:
     Progress messages are consumed by the SSE endpoint for real-time UI updates.
     """
 
-    def __init__(self, job_id: str, url: Optional[str] = None, subtitles_enabled: bool = True):
+    def __init__(
+        self,
+        job_id: str,
+        url: Optional[str] = None,
+        subtitles_enabled: bool = True,
+        user_id: Optional[str] = None,
+        user_email: Optional[str] = None,
+    ):
         self.id: str = job_id
         self.url: Optional[str] = url
         self.subtitles_enabled: bool = subtitles_enabled
+        self.user_id: Optional[str] = user_id
+        self.user_email: Optional[str] = user_email
         self.uploaded_video_path: Optional[Path] = None
         self.status: JobStatus = JobStatus.QUEUED
         self.progress: List[dict] = []
@@ -418,6 +428,14 @@ def process_video_stateless(job: Job):
             f"Ready for download.",
         )
 
+        # Server-side usage metering: increment usage upon successful render
+        if job.user_id:
+            try:
+                _increment_user_uploads(job.user_id)
+                logger.info(f"[{job_id}] Incremented server-side upload meter for user {job.user_id}")
+            except Exception as meter_err:
+                logger.error(f"[{job_id}] Failed to increment upload meter: {meter_err}")
+
     except Exception as e:
         error_msg = str(e)
         if job.cancelled or "cancelled" in error_msg.lower():
@@ -486,6 +504,115 @@ async def add_cache_headers(request, call_next):
     return response
 
 
+class RateLimiter:
+    """Thread-safe sliding-window rate limiter."""
+    def __init__(self):
+        self._requests: Dict[str, List[float]] = {}
+        self._lock = threading.Lock()
+
+    def is_allowed(self, key: str, max_requests: int, window_seconds: int) -> bool:
+        now = time.time()
+        with self._lock:
+            if key not in self._requests:
+                self._requests[key] = []
+            cutoff = now - window_seconds
+            self._requests[key] = [t for t in self._requests[key] if t > cutoff]
+            if len(self._requests[key]) >= max_requests:
+                return False
+            self._requests[key].append(now)
+            return True
+
+rate_limiter = RateLimiter()
+
+def get_client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _get_upload_limit(tier: str) -> int:
+    """Return the upload limit for a given tier."""
+    limits = {
+        'free': FREE_UPLOAD_LIMIT,
+        'pro': PRO_UPLOAD_LIMIT,
+        'ultra': ULTRA_UPLOAD_LIMIT,
+    }
+    return limits.get(tier, FREE_UPLOAD_LIMIT)
+
+
+def _get_or_create_subscription(user_id: str, email: str = "") -> dict:
+    """Get or create a user_subscriptions row. Returns the row as a dict."""
+    if not supabase_admin:
+        return {'tier': 'free', 'uploads_used': 0}
+    
+    try:
+        result = supabase_admin.table('user_subscriptions').select('*').eq('user_id', user_id).execute()
+        
+        if result.data and len(result.data) > 0:
+            return result.data[0]
+        
+        # Create a new free subscription row
+        new_sub = {
+            'user_id': user_id,
+            'tier': 'free',
+            'uploads_used': 0,
+        }
+        if email:
+            new_sub['email'] = email
+        insert_result = supabase_admin.table('user_subscriptions').insert(new_sub).execute()
+        return insert_result.data[0] if insert_result.data else new_sub
+    except Exception as e:
+        logger.error(f"Error accessing user_subscriptions table: {e}")
+        return {'tier': 'free', 'uploads_used': 0}
+
+
+def _check_user_can_upload(user_id: str, email: str) -> tuple[bool, str, int, int]:
+    """
+    Returns (can_upload: bool, tier: str, uploads_used: int, limit: int)
+    Fails closed if database error occurs.
+    """
+    if ADMIN_EMAIL and email and email.lower() == ADMIN_EMAIL.lower():
+        return True, "admin", 0, 999999
+
+    sub = _get_or_create_subscription(user_id, email)
+    tier = sub.get('tier', 'free')
+    uploads_used = sub.get('uploads_used', 0)
+    limit = _get_upload_limit(tier)
+
+    # Billing period check for pro/ultra
+    if tier in ('pro', 'ultra') and sub.get('period_end'):
+        from datetime import timezone
+        try:
+            period_end = datetime.fromisoformat(sub['period_end'].replace('Z', '+00:00'))
+            if datetime.now(timezone.utc) > period_end:
+                uploads_used = 0
+                if supabase_admin:
+                    supabase_admin.table('user_subscriptions').update({
+                        'uploads_used': 0
+                    }).eq('user_id', user_id).execute()
+        except Exception:
+            pass
+
+    return (uploads_used < limit), tier, uploads_used, limit
+
+
+def _increment_user_uploads(user_id: str) -> int:
+    """Increment uploads_used in Supabase for user_id."""
+    if not supabase_admin:
+        return 0
+    try:
+        sub = _get_or_create_subscription(user_id)
+        new_count = sub.get('uploads_used', 0) + 1
+        supabase_admin.table('user_subscriptions').update({
+            'uploads_used': new_count
+        }).eq('user_id', user_id).execute()
+        return new_count
+    except Exception as e:
+        logger.error(f"Failed to increment uploads_used for {user_id}: {e}")
+        return 0
+
+
 async def get_authenticated_user(request: Request):
     """Extract and verify user from Supabase JWT. Raises 401 if invalid."""
     auth_header = request.headers.get('Authorization', '')
@@ -513,7 +640,14 @@ async def upload_chunk(
     Receive a chunk of a video file and append it to the temporary file on disk.
     Allows bypassing Cloud Run's 32MB request body limit.
     """
-    await get_authenticated_user(request)
+    user = await get_authenticated_user(request)
+
+    # Rate limiting on chunk upload
+    client_ip = get_client_ip(request)
+    if not rate_limiter.is_allowed(f"chunk_ip:{client_ip}", max_requests=300, window_seconds=60):
+        raise HTTPException(status_code=429, detail="Upload rate limit exceeded. Please slow down.")
+    if not rate_limiter.is_allowed(f"chunk_user:{user.id}", max_requests=200, window_seconds=60):
+        raise HTTPException(status_code=429, detail="Upload rate limit exceeded. Please slow down.")
 
     # Validate job_id format
     job_id = job_id.strip()
@@ -565,7 +699,22 @@ async def process_stream(
     Stream real-time progress updates via Server-Sent Events (SSE).
     This handles the processing request completely statelessly via POST.
     """
-    await get_authenticated_user(request)
+    user = await get_authenticated_user(request)
+
+    # Rate limiting on AI processing requests
+    client_ip = get_client_ip(request)
+    if not rate_limiter.is_allowed(f"proc_ip:{client_ip}", max_requests=10, window_seconds=600):
+        raise HTTPException(status_code=429, detail="Too many processing requests from this IP. Please wait a few minutes.")
+    if not rate_limiter.is_allowed(f"proc_user:{user.id}", max_requests=10, window_seconds=600):
+        raise HTTPException(status_code=429, detail="Too many concurrent or rapid processing requests. Please wait a few minutes.")
+
+    # Server-side usage metering & quota check (fails closed)
+    can_upload, tier, used, limit = _check_user_can_upload(user.id, user.email or "")
+    if not can_upload:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Upload limit reached for {tier} tier ({used}/{limit} uploads used). Please upgrade your subscription to create more clips."
+        )
 
     url = url.strip()
     job_id = job_id.strip()
@@ -584,7 +733,7 @@ async def process_stream(
     if not job_id:
         job_id = str(uuid.uuid4())
 
-    job = Job(job_id, url if url else None, subtitles_enabled)
+    job = Job(job_id, url if url else None, subtitles_enabled, user_id=user.id, user_email=user.email)
     active_jobs[job_id] = job
 
     if not url and job_id and filename:
@@ -754,42 +903,6 @@ async def delete_project_files(project_id: str, request: Request):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def _get_upload_limit(tier: str) -> int:
-    """Return the upload limit for a given tier."""
-    limits = {
-        'free': FREE_UPLOAD_LIMIT,
-        'pro': PRO_UPLOAD_LIMIT,
-        'ultra': ULTRA_UPLOAD_LIMIT,
-    }
-    return limits.get(tier, FREE_UPLOAD_LIMIT)
-
-
-def _get_or_create_subscription(user_id: str, email: str = "") -> dict:
-    """Get or create a user_subscriptions row. Returns the row as a dict."""
-    if not supabase_admin:
-        return {'tier': 'free', 'uploads_used': 0}
-    
-    try:
-        result = supabase_admin.table('user_subscriptions').select('*').eq('user_id', user_id).execute()
-        
-        if result.data and len(result.data) > 0:
-            return result.data[0]
-        
-        # Create a new free subscription row
-        new_sub = {
-            'user_id': user_id,
-            'tier': 'free',
-            'uploads_used': 0,
-        }
-        if email:
-            new_sub['email'] = email
-        insert_result = supabase_admin.table('user_subscriptions').insert(new_sub).execute()
-        return insert_result.data[0] if insert_result.data else new_sub
-    except Exception as e:
-        logger.error(f"Error accessing user_subscriptions table (did you run supabase_schema.sql?): {e}")
-        return {'tier': 'free', 'uploads_used': 0}
-
-
 @app.get("/api/subscription-status")
 async def subscription_status(request: Request):
     """Return the current user's subscription tier, uploads used, and uploads remaining."""
@@ -938,6 +1051,9 @@ async def create_checkout_session(request: Request):
         user = user_response.user
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+    if not rate_limiter.is_allowed(f"checkout_user:{user.id}", max_requests=6, window_seconds=600):
+        raise HTTPException(status_code=429, detail="Too many checkout session attempts. Please wait a few minutes.")
     
     body = await request.json()
     plan = body.get('plan', 'pro')
@@ -999,6 +1115,9 @@ async def create_portal_session(request: Request):
         user = user_response.user
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+    if not rate_limiter.is_allowed(f"portal_user:{user.id}", max_requests=6, window_seconds=600):
+        raise HTTPException(status_code=429, detail="Too many portal session attempts. Please wait a few minutes.")
     
     sub = _get_or_create_subscription(user.id, user.email)
     customer_id = sub.get('stripe_customer_id')
@@ -1219,8 +1338,11 @@ async def download_clip(job_id: str, filename: str):
     )
 
 @app.get("/api/download_proxy")
-async def download_proxy(url: str, filename: str = "clip.mp4"):
+async def download_proxy(request: Request, url: str, filename: str = "clip.mp4"):
     """Proxy R2 video URLs to force download in the browser."""
+    client_ip = get_client_ip(request)
+    if not rate_limiter.is_allowed(f"proxy_ip:{client_ip}", max_requests=30, window_seconds=60):
+        raise HTTPException(status_code=429, detail="Download rate limit exceeded. Please wait a moment.")
     import urllib.request
     from urllib.parse import urlparse
     
