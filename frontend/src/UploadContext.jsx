@@ -330,7 +330,10 @@ export function UploadProvider({ children }) {
               }
               if (eventType === 'done' || eventType === 'error') {
                 setIsProcessing(false);
-                if (eventType === 'done') {
+                if (eventType === 'error' || parsed.status === 'error') {
+                  setError(`Processing failed: ${parsed.error || 'Unknown error'}`);
+                  setLogs(prev => [...prev, { level: 'error', message: `❌ Error: ${parsed.error}` }]);
+                } else if (eventType === 'done') {
                   setLogs(prev => [...prev, { level: 'success', message: '✓ Processing finished successfully!' }]);
                   setProgressText('✓ Processing finished successfully!');
                   
@@ -349,9 +352,6 @@ export function UploadProvider({ children }) {
                      setThumbnail(null);
                      navigate(`/projects/${jobId}`);
                   }, 1500);
-                } else if (eventType === 'error') {
-                  setError(`Processing failed: ${parsed.error || 'Unknown error'}`);
-                  setLogs(prev => [...prev, { level: 'error', message: `❌ Error: ${parsed.error}` }]);
                 }
               }
             } catch(e) {
