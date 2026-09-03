@@ -8,7 +8,6 @@ const API = '';
 
 export function UploadProvider({ children }) {
   const [file, setFile] = useState(null);
-  const [url, setUrl] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressText, setProgressText] = useState('');
@@ -52,8 +51,8 @@ export function UploadProvider({ children }) {
 
   const generateThumbnail = (videoFile) => {
     const video = document.createElement('video');
-    const urlObj = URL.createObjectURL(videoFile);
-    video.src = urlObj;
+    const url = URL.createObjectURL(videoFile);
+    video.src = url;
     video.muted = true;
     video.playsInline = true;
     
@@ -68,18 +67,17 @@ export function UploadProvider({ children }) {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       setThumbnail(canvas.toDataURL('image/jpeg', 0.7));
-      URL.revokeObjectURL(urlObj);
+      URL.revokeObjectURL(url);
     };
 
     video.onerror = () => {
-      URL.revokeObjectURL(urlObj);
+      URL.revokeObjectURL(url);
     };
   };
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
       setFile(e.target.files[0]);
-      setUrl('');
       setError('');
       setThumbnail(null);
       generateThumbnail(e.target.files[0]);
@@ -107,9 +105,8 @@ export function UploadProvider({ children }) {
   };
 
   const startProcessing = async () => {
-    const trimmedUrl = (url || '').trim();
-    if (!file && !trimmedUrl) {
-      setError("Please paste a video link or drop a video file.");
+    if (!file) {
+      setError("Please select a video file.");
       return;
     }
     if (!user) {
@@ -146,7 +143,7 @@ export function UploadProvider({ children }) {
     setLogs([]);
     setHasClips(false);
     setProgress(0);
-    setProgressText('Preparing processing...');
+    setProgressText('Preparing upload...');
     setSpeedText('');
 
     abortControllerRef.current = new AbortController();
@@ -155,104 +152,87 @@ export function UploadProvider({ children }) {
     try {
       const jobId = crypto.randomUUID();
       setActiveJobId(jobId);
+      const filename = file.name;
+      
+      const chunkSize = 5 * 1024 * 1024;
+      const totalChunks = Math.ceil(file.size / chunkSize);
+      const startTime = Date.now();
 
       const { data: { session: uploadSession } } = await supabase.auth.getSession();
       const authHeaders = uploadSession ? { 'Authorization': `Bearer ${uploadSession.access_token}` } : {};
 
-      const formData = new FormData();
-      formData.append('subtitles_enabled', 'true');
-      formData.append('job_id', jobId);
-
-      if (trimmedUrl) {
-        setProgress(5);
-        setProgressText('Connecting to video source...');
-
-        const { error: projError } = await supabase.from('projects').insert({
-          id: jobId,
-          user_id: user.id,
-          title: trimmedUrl,
-          thumbnail_url: null,
+      let lastRenderTime = 0;
+      for (let i = 0; i < totalChunks; i++) {
+        if (signal.aborted) throw new Error("AbortError");
+        
+        const start = i * chunkSize;
+        const end = Math.min(start + chunkSize, file.size);
+        const chunk = file.slice(start, end);
+        
+        const chunkData = new FormData();
+        chunkData.append('job_id', jobId);
+        chunkData.append('chunk_index', i);
+        chunkData.append('total_chunks', totalChunks);
+        chunkData.append('filename', filename);
+        chunkData.append('chunk', chunk);
+        
+        const uploadRes = await fetch(`${API}/api/upload_chunk`, {
+          method: 'POST',
+          headers: authHeaders,
+          body: chunkData,
+          signal
         });
-        if (projError) {
-          console.error("Failed to create project in database:", projError);
-          throw new Error("Database error while creating project.");
+        
+        if (!uploadRes.ok) {
+          throw new Error(`Chunk upload failed: ${await uploadRes.text()}`);
         }
-
-        formData.append('url', trimmedUrl);
-      } else {
-        const filename = file.name;
-        const chunkSize = 5 * 1024 * 1024;
-        const totalChunks = Math.ceil(file.size / chunkSize);
-        const startTime = Date.now();
-
-        let lastRenderTime = 0;
-        for (let i = 0; i < totalChunks; i++) {
-          if (signal.aborted) throw new Error("AbortError");
+        
+        const now = Date.now();
+        if (now - lastRenderTime > 150 || i === totalChunks - 1) {
+          const currentProgress = Math.round(((i + 1) / totalChunks) * 100);
+          setProgress(currentProgress);
+          setProgressText(`Uploading... ${currentProgress}%`);
           
-          const start = i * chunkSize;
-          const end = Math.min(start + chunkSize, file.size);
-          const chunk = file.slice(start, end);
-          
-          const chunkData = new FormData();
-          chunkData.append('job_id', jobId);
-          chunkData.append('chunk_index', i);
-          chunkData.append('total_chunks', totalChunks);
-          chunkData.append('filename', filename);
-          chunkData.append('chunk', chunk);
-          
-          const uploadRes = await fetch(`${API}/api/upload_chunk`, {
-            method: 'POST',
-            headers: authHeaders,
-            body: chunkData,
-            signal
-          });
-          
-          if (!uploadRes.ok) {
-            throw new Error(`Chunk upload failed: ${await uploadRes.text()}`);
-          }
-          
-          const now = Date.now();
-          if (now - lastRenderTime > 150 || i === totalChunks - 1) {
-            const currentProgress = Math.round(((i + 1) / totalChunks) * 100);
-            setProgress(currentProgress);
-            setProgressText(`Uploading... ${currentProgress}%`);
-            
-            const elapsedSeconds = (now - startTime) / 1000;
-            const speedMBps = ((end / (1024 * 1024)) / elapsedSeconds).toFixed(1);
-            setSpeedText(`${speedMBps} MB/s`);
-            lastRenderTime = now;
-          }
+          const elapsedSeconds = (now - startTime) / 1000;
+          const speedMBps = ((end / (1024 * 1024)) / elapsedSeconds).toFixed(1);
+          setSpeedText(`${speedMBps} MB/s`);
+          lastRenderTime = now;
         }
+      }
 
-        setSpeedText('');
-        setProgressText('Upload Complete! Starting AI Processing...');
+      setSpeedText('');
+      setProgressText('Upload Complete! Starting AI Processing...');
 
-        const { error: projError } = await supabase.from('projects').insert({
-          id: jobId,
-          user_id: user.id,
-          title: filename,
-          thumbnail_url: thumbnail || null,
-        });
-        if (projError) {
-          console.error("Failed to create project in database:", projError);
-          throw new Error("Database error while creating project.");
-        }
-
-        formData.append('filename', filename);
+      // Pre-create the Project in Supabase before processing starts
+      const { error: projError } = await supabase.from('projects').insert({
+        id: jobId,
+        user_id: user.id,
+        title: filename,
+        thumbnail_url: thumbnail || null,
+      });
+      if (projError) {
+        console.error("Failed to create project in database:", projError);
+        throw new Error("Database error while creating project.");
       }
 
       // Increment upload counter
       try {
-        if (uploadSession) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
           await fetch(`${API}/api/increment-upload`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${uploadSession.access_token}` }
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
           });
           fetchSubscriptionStatus();
         }
       } catch (err) {
         console.error("Failed to increment upload counter:", err);
       }
+
+      const formData = new FormData();
+      formData.append('subtitles_enabled', 'true');
+      formData.append('job_id', jobId);
+      formData.append('filename', filename);
 
       const response = await fetch(`${API}/api/process_stream`, {
         method: 'POST',
@@ -330,10 +310,7 @@ export function UploadProvider({ children }) {
               }
               if (eventType === 'done' || eventType === 'error') {
                 setIsProcessing(false);
-                if (eventType === 'error' || parsed.status === 'error') {
-                  setError(`Processing failed: ${parsed.error || 'Unknown error'}`);
-                  setLogs(prev => [...prev, { level: 'error', message: `❌ Error: ${parsed.error}` }]);
-                } else if (eventType === 'done') {
+                if (eventType === 'done') {
                   setLogs(prev => [...prev, { level: 'success', message: '✓ Processing finished successfully!' }]);
                   setProgressText('✓ Processing finished successfully!');
                   
@@ -348,10 +325,12 @@ export function UploadProvider({ children }) {
 
                   setTimeout(() => {
                      setFile(null);
-                     setUrl('');
                      setThumbnail(null);
                      navigate(`/projects/${jobId}`);
                   }, 1500);
+                } else if (eventType === 'error') {
+                  setError(`Processing failed: ${parsed.error || 'Unknown error'}`);
+                  setLogs(prev => [...prev, { level: 'error', message: `❌ Error: ${parsed.error}` }]);
                 }
               }
             } catch(e) {
@@ -373,9 +352,9 @@ export function UploadProvider({ children }) {
   };
 
   const contextValue = useMemo(() => ({
-    file, setFile, handleFileChange, url, setUrl, isProcessing, progress, progressText, speedText, logs, error, 
+    file, handleFileChange, isProcessing, progress, progressText, speedText, logs, error, 
     startProcessing, stopProcessing, activeJobId, hasClips, subscriptionStatus, fetchSubscriptionStatus
-  }), [file, url, isProcessing, progress, progressText, speedText, logs, error, activeJobId, hasClips, subscriptionStatus, fetchSubscriptionStatus]);
+  }), [file, isProcessing, progress, progressText, speedText, logs, error, activeJobId, hasClips, subscriptionStatus, fetchSubscriptionStatus]);
 
   return (
     <UploadContext.Provider value={contextValue}>

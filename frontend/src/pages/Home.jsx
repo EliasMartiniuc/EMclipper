@@ -1,12 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Upload, XCircle, PlayCircle, Loader2, Link2, X, Sparkles } from 'lucide-react';
+import { Upload, XCircle, PlayCircle, Loader2 } from 'lucide-react';
 import { useUpload } from '../UploadContext';
 import { useAuth } from '../AuthContext';
 
 export default function Home() {
   const {
-    file, setFile, handleFileChange, url, setUrl, isProcessing, progress, progressText, 
+    file, handleFileChange, isProcessing, progress, progressText, 
     speedText, logs, error, startProcessing, stopProcessing, activeJobId, hasClips,
     subscriptionStatus
   } = useUpload();
@@ -24,8 +24,6 @@ export default function Home() {
   const remaining = subscriptionStatus?.uploads_remaining;
   const tier = subscriptionStatus?.tier || 'free';
   const isAdmin = subscriptionStatus?.is_admin;
-
-  const hasInput = Boolean(file || (url && url.trim()));
 
   return (
     <div>
@@ -81,132 +79,26 @@ export default function Home() {
           
           {!isProcessing ? (
             <>
-              {/* ─── Video URL Input Bar ─── */}
-              <div style={{ marginBottom: '24px', textAlign: 'left' }}>
-                <label style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '8px', 
-                  fontSize: '0.875rem', 
-                  fontWeight: 600, 
-                  color: 'var(--text-primary)', 
-                  marginBottom: '10px' 
-                }}>
-                  <Link2 size={16} color="var(--accent-color)" /> Paste Video Link
-                </label>
-
-                <div style={{
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  background: 'var(--bg-color)',
-                  boxShadow: 'var(--neu-inset)',
-                  borderRadius: '16px',
-                  padding: '4px 8px 4px 16px',
-                  border: url ? '1px solid var(--accent-color)' : '1px solid transparent',
-                  transition: 'border 0.2s ease, box-shadow 0.2s ease',
-                  opacity: canUpload || isAdmin ? 1 : 0.5
-                }}>
-                  <input 
-                    type="url"
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    value={url}
-                    onChange={(e) => {
-                      setUrl(e.target.value);
-                      if (e.target.value && file) setFile(null);
-                    }}
-                    disabled={!canUpload && !isAdmin}
-                    style={{
-                      flex: 1,
-                      border: 'none',
-                      outline: 'none',
-                      background: 'transparent',
-                      color: 'var(--text-primary)',
-                      fontSize: '0.95rem',
-                      padding: '12px 0',
-                      minWidth: 0
-                    }}
-                  />
-                  {url && (
-                    <button
-                      type="button"
-                      onClick={() => setUrl('')}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer',
-                        padding: '8px',
-                        display: 'flex',
-                        alignItems: 'center'
-                      }}
-                      title="Clear URL"
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
-                </div>
-
-                {url && (
-                  <div style={{ 
-                    marginTop: '8px', 
-                    fontSize: '0.8rem', 
-                    color: 'var(--accent-color)', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '4px' 
-                  }}>
-                    <Sparkles size={13} /> Link ready to fetch via Cobalt
-                  </div>
-                )}
-              </div>
-
-              {/* ─── Stylized Divider ─── */}
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                margin: '20px 0',
-                color: 'var(--text-muted)',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                letterSpacing: '1.5px',
-                textTransform: 'uppercase'
-              }}>
-                <div style={{ flex: 1, height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
-                <span style={{ padding: '0 16px', opacity: 0.6 }}>OR</span>
-                <div style={{ flex: 1, height: '1px', background: 'rgba(255, 255, 255, 0.08)' }} />
-              </div>
-
-              {/* ─── File Drop Box ─── */}
-              <div 
-                className="upload-box" 
-                style={{ 
-                  opacity: (canUpload || isAdmin) ? (url ? 0.6 : 1) : 0.5, 
-                  pointerEvents: (canUpload || isAdmin) ? 'auto' : 'none',
-                  transition: 'opacity 0.2s ease'
-                }}
-              >
-                <Upload size={44} color="var(--accent-color)" style={{ marginBottom: '14px' }} />
-                <h2 style={{ marginBottom: '6px', fontSize: '1.25rem' }}>Drop your video file here</h2>
-                <p style={{ color: 'var(--text-muted)', marginBottom: '20px', fontSize: '0.875rem' }}>
-                  MP4, MOV, or WEBM up to unlimited size
-                </p>
+              <div className="upload-box" style={{ opacity: canUpload ? 1 : 0.5, pointerEvents: canUpload ? 'auto' : 'none' }}>
+                <Upload size={48} color="var(--accent-color)" style={{ marginBottom: '16px' }} />
+                <h2 style={{ marginBottom: '8px' }}>Drop your video file here</h2>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.875rem' }}>MP4, MOV, or WEBM up to unlimited size</p>
                 
                 <input 
                   type="file" 
                   onChange={handleFileChange} 
                   accept="video/*"
                   aria-label="Upload video file"
-                  disabled={!canUpload && !isAdmin}
+                  disabled={!canUpload}
                   style={{
-                    position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: (canUpload || isAdmin) ? 'pointer' : 'not-allowed'
+                    position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: canUpload ? 'pointer' : 'not-allowed'
                   }}
                 />
                 <button className="neu-btn" style={{ pointerEvents: 'none' }}>Choose File</button>
               </div>
 
               {file && (
-                <div style={{ marginTop: '16px', marginBottom: '24px', color: 'var(--accent-color)', fontWeight: 'bold' }}>
+                <div style={{ marginBottom: '24px', color: 'var(--accent-color)', fontWeight: 'bold' }}>
                   Ready to process: {file.name} ({(file.size / (1024 * 1024)).toFixed(1)} MB)
                 </div>
               )}
@@ -214,17 +106,10 @@ export default function Home() {
               <button 
                 className="neu-btn-primary" 
                 onClick={startProcessing} 
-                disabled={(!canUpload && !isAdmin) || !hasInput}
-                style={{ 
-                  width: '100%', 
-                  padding: '16px', 
-                  fontSize: '1.1rem', 
-                  marginTop: '20px',
-                  opacity: (canUpload || isAdmin) && hasInput ? 1 : 0.5,
-                  cursor: (canUpload || isAdmin) && hasInput ? 'pointer' : 'not-allowed'
-                }}
+                disabled={!canUpload && !isAdmin}
+                style={{ width: '100%', padding: '16px', fontSize: '1.1rem', opacity: canUpload || isAdmin ? 1 : 0.5 }}
               >
-                <PlayCircle size={22} /> {url ? 'Fetch & Generate Clips' : 'Generate Clips'}
+                <PlayCircle size={24} /> Generate Clips
               </button>
 
               {!canUpload && !isAdmin && (

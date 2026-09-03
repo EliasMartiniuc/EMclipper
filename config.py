@@ -85,8 +85,3 @@ ULTRA_UPLOAD_LIMIT = int(os.getenv("ULTRA_UPLOAD_LIMIT", "70"))  # Per month
 
 # ─── Admin Account (unlimited uploads, hidden from users) ────────────────────
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "")
-
-# ─── Cobalt Video Downloader ──────────────────────────────────────────────────
-COBALT_API_URL = os.getenv("COBALT_API_URL", "").rstrip("/")
-COBALT_API_KEY = os.getenv("COBALT_API_KEY", "")
-
