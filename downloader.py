@@ -200,9 +200,9 @@ def download_video(url: str, job_id: str) -> Tuple[Path, dict]:
         "format": "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
         "outtmpl": output_template,
         "merge_output_format": "mp4",
-        # ALWAYS use android and web player clients. This is mandatory on headless servers
-        # to bypass the IP-mismatch age restriction check, even when cookies are provided.
-        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        # Use 'ios' and 'android_creator' player clients. This is mandatory on headless servers
+        # to bypass the IP-mismatch age restriction check and bot-checks, even when cookies are provided.
+        "extractor_args": {"youtube": {"player_client": ["ios", "android_creator"]}},
         # Reliability
         "no_warnings": True,
         "quiet": True,
