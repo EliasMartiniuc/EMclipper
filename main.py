@@ -485,6 +485,10 @@ ALLOWED_ORIGINS = {
 }
 SAFE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".wmv"}
+ALLOWED_VIDEO_DOMAINS = {
+    "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be",
+    "tiktok.com", "www.tiktok.com", "vimeo.com"
+}
 
 # CORS — locked to production and local dev origins
 app.add_middleware(
@@ -505,7 +509,7 @@ async def add_cache_headers(request, call_next):
 
 
 class RateLimiter:
-    """Thread-safe sliding-window rate limiter."""
+    """Thread-safe sliding-window rate limiter with automatic memory cleanup."""
     def __init__(self):
         self._requests: Dict[str, List[float]] = {}
         self._lock = threading.Lock()
@@ -513,22 +517,32 @@ class RateLimiter:
     def is_allowed(self, key: str, max_requests: int, window_seconds: int) -> bool:
         now = time.time()
         with self._lock:
-            if key not in self._requests:
-                self._requests[key] = []
             cutoff = now - window_seconds
-            self._requests[key] = [t for t in self._requests[key] if t > cutoff]
-            if len(self._requests[key]) >= max_requests:
+            timestamps = self._requests.get(key, [])
+            valid_timestamps = [t for t in timestamps if t > cutoff]
+
+            # Evict key if no active timestamps remain
+            if not valid_timestamps and key in self._requests:
+                del self._requests[key]
+
+            if len(valid_timestamps) >= max_requests:
+                self._requests[key] = valid_timestamps
                 return False
-            self._requests[key].append(now)
+
+            valid_timestamps.append(now)
+            self._requests[key] = valid_timestamps
             return True
 
 rate_limiter = RateLimiter()
 
 def get_client_ip(request: Request) -> str:
+    # Prefer direct client host; fallback to right-most forwarded entry
+    if request.client and request.client.host:
+        return request.client.host
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+        return forwarded.split(",")[-1].strip()
+    return "unknown"
 
 
 def _get_upload_limit(tier: str) -> int:
@@ -729,6 +743,9 @@ async def process_stream(
         parsed_url = urlparse(url)
         if parsed_url.scheme not in ("http", "https") or not parsed_url.netloc:
             raise HTTPException(status_code=400, detail="Invalid video URL format")
+        host = (parsed_url.hostname or "").lower()
+        if not any(host == d or host.endswith("." + d) for d in ALLOWED_VIDEO_DOMAINS):
+            raise HTTPException(status_code=400, detail="Unsupported video platform domain")
 
     if not job_id:
         job_id = str(uuid.uuid4())
@@ -879,7 +896,9 @@ async def delete_project_files(project_id: str, request: Request):
     # Verify ownership — only the project owner can delete it
     if supabase_admin:
         result = supabase_admin.table('projects').select('user_id').eq('id', project_id).execute()
-        if result.data and result.data[0].get('user_id') != user.id:
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Project not found")
+        if result.data[0].get('user_id') != user.id:
             raise HTTPException(status_code=403, detail="Not your project")
 
     # Clips are stored at {project_id}/filename.mp4
@@ -1148,11 +1167,10 @@ async def stripe_webhook(request: Request):
     sig_header = request.headers.get('stripe-signature', '')
     
     try:
-        if STRIPE_WEBHOOK_SECRET:
-            event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
-        else:
-            # No webhook secret configured, parse directly (less secure)
-            event = stripe.Event.construct_from(json.loads(payload), stripe.api_key)
+        if not STRIPE_WEBHOOK_SECRET:
+            logger.error("STRIPE_WEBHOOK_SECRET is not configured; rejecting webhook")
+            raise HTTPException(status_code=500, detail="Webhook signature verification unconfigured")
+        event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid payload")
     except stripe.error.SignatureVerificationError:
@@ -1346,8 +1364,10 @@ async def download_proxy(request: Request, url: str, filename: str = "clip.mp4")
     import urllib.request
     from urllib.parse import urlparse
     
-    # SECURITY: Only allow proxying from our own R2 CDN domain
+    # SECURITY: Only allow proxying from our own R2 CDN domain via HTTPS
     parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise HTTPException(status_code=400, detail="Forbidden: Only HTTPS URLs are permitted")
     allowed_hosts = [
         "pub-e155a14c4f4c4b0abdda4681977c0a83.r2.dev",
     ]
@@ -1362,7 +1382,7 @@ async def download_proxy(request: Request, url: str, filename: str = "clip.mp4")
     def iter_file():
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         try:
-            with urllib.request.urlopen(req) as response:
+            with urllib.request.urlopen(req, timeout=15) as response:
                 while chunk := response.read(8192):
                     yield chunk
         except Exception as e:
