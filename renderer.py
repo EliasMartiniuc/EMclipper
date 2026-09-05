@@ -72,13 +72,21 @@ def render_short(
 
     # Step 3: Add watermark for free tier
     if add_watermark:
+        # Position text right above the actual video content.
+        # After scale+pad the total frame is 1080x1920.
+        # The actual video content height (ih) is centered, so top of video = (H-ih)/2.
+        # We place text at y = (H-ih)/2 - fontsize - 8, i.e. just above the video.
+        # fontfile path is the standard Debian/Ubuntu location for fonts-roboto.
+        roboto_font = "/usr/share/fonts/truetype/roboto/unhinted/RobotoTTF/Roboto-Bold.ttf"
         filter_parts += (
-            ",drawtext="
-            "text='EMclipper.com':"
-            "fontsize=28:"
-            "fontcolor=white@0.5:"
-            "x=24:y=24:"
-            "shadowcolor=black@0.3:shadowx=1:shadowy=1"
+            f",drawtext="
+            f"fontfile={roboto_font}:"
+            f"text='EMclipper.com':"
+            f"fontsize=28:"
+            f"fontcolor=white@0.75:"
+            f"x=24:"
+            f"y=(H-ih)/2-text_h-8:"
+            f"shadowcolor=black@0.5:shadowx=1:shadowy=1"
         )
 
     filter_str = f"[0:v]{filter_parts}[outv]"
