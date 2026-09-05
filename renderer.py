@@ -22,7 +22,7 @@ def render_short(
     job_id: str,
     progress_callback: Optional[Callable[[float], None]] = None,
     subprocess_tracker: Optional[List] = None,
-    is_free_tier: bool = False,
+    add_watermark: bool = False,
 ) -> Path:
     """
     Render the final video clip.
@@ -35,6 +35,7 @@ def render_short(
         output_path: Where to write the final MP4
         job_id: Job identifier
         progress_callback: Optional function called with progress (0.0 to 1.0)
+        add_watermark: If True, burn "EMclipper.com" watermark in the top-left corner
     """
     source_video = Path(source_video)
     output_path = Path(output_path)
@@ -47,7 +48,7 @@ def render_short(
     if not source_video.exists():
         raise RuntimeError(f"Source video not found: {source_video}")
 
-    logger.info(f"Rendering clip: {duration:.1f}s. Subtitles: {'Yes' if ass_path else 'No'}")
+    logger.info(f"Rendering clip: {duration:.1f}s. Subtitles: {'Yes' if ass_path else 'No'}. Watermark: {'Yes' if add_watermark else 'No'}")
     
     # ── Build FFmpeg command ──
     ffmpeg_cmd = [
@@ -60,18 +61,27 @@ def render_short(
         "-i", str(source_video),
     ]
 
-    # Ensure vertical 9:16 padding (1080x1920)
+    # ── Build filter chain ──
+    # Step 1: Scale and pad to 9:16 (1080x1920)
+    filter_parts = "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2"
+
+    # Step 2: Burn in subtitles if provided
     if ass_path and ass_path.exists():
         ass_path_ffmpeg = _escape_ffmpeg_path(str(ass_path))
-        filter_str = f"[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,ass='{ass_path_ffmpeg}'"
-    else:
-        filter_str = "[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2"
+        filter_parts += f",ass='{ass_path_ffmpeg}'"
 
-    if is_free_tier:
-        font_path = _escape_ffmpeg_path(str(Path("font.ttf").absolute()))
-        filter_str += f",drawtext=fontfile='{font_path}':text='EMclipper.com':fontsize=32:fontcolor=white@0.5:box=0:shadowcolor=black@0.5:shadowx=2:shadowy=2:x=40:y=40"
-        
-    filter_str += "[outv]"
+    # Step 3: Add watermark for free tier
+    if add_watermark:
+        filter_parts += (
+            ",drawtext="
+            "text='EMclipper.com':"
+            "fontsize=28:"
+            "fontcolor=white@0.5:"
+            "x=24:y=24:"
+            "shadowcolor=black@0.3:shadowx=1:shadowy=1"
+        )
+
+    filter_str = f"[0:v]{filter_parts}[outv]"
 
     ffmpeg_cmd.extend([
         "-filter_complex", filter_str,

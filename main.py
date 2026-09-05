@@ -108,14 +108,14 @@ class Job:
         subtitles_enabled: bool = True,
         user_id: Optional[str] = None,
         user_email: Optional[str] = None,
-        user_tier: Optional[str] = None,
+        tier: str = "free",
     ):
         self.id: str = job_id
         self.url: Optional[str] = url
         self.subtitles_enabled: bool = subtitles_enabled
         self.user_id: Optional[str] = user_id
         self.user_email: Optional[str] = user_email
-        self.user_tier: Optional[str] = user_tier
+        self.tier: str = tier
         self.uploaded_video_path: Optional[Path] = None
         self.status: JobStatus = JobStatus.QUEUED
         self.progress: List[dict] = []
@@ -363,6 +363,9 @@ def process_video_stateless(job: Job):
                         f"Clip {clip_num}: Rendering {pct * 100:.0f}%",
                     )
 
+            # Add watermark for free tier users
+            add_watermark = job.tier == "free"
+
             renderer.render_short(
                 source_video=video_path,
                 ass_path=ass_path,
@@ -372,7 +375,7 @@ def process_video_stateless(job: Job):
                 job_id=job_id,
                 progress_callback=render_progress,
                 subprocess_tracker=job.active_subprocesses,
-                is_free_tier=(job.user_tier == "free"),
+                add_watermark=add_watermark,
             )
 
             # Check cancellation AFTER render completes but BEFORE uploading to R2
@@ -753,7 +756,7 @@ async def process_stream(
     if not job_id:
         job_id = str(uuid.uuid4())
 
-    job = Job(job_id, url if url else None, subtitles_enabled, user_id=user.id, user_email=user.email, user_tier=tier)
+    job = Job(job_id, url if url else None, subtitles_enabled, user_id=user.id, user_email=user.email, tier=tier)
     active_jobs[job_id] = job
 
     if not url and job_id and filename:
