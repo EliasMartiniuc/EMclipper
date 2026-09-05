@@ -62,21 +62,14 @@ def render_short(
     ]
 
     # ── Build filter chain ──
-    # Step 1: Scale and pad to 9:16 (1080x1920)
-    filter_parts = "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2"
+    # The order matters: scale → watermark (on actual content) → pad → subtitles
+    
+    # Step 1: Scale to fit within 1080x1920 (preserving aspect ratio, no padding yet)
+    filter_parts = "scale=1080:1920:force_original_aspect_ratio=decrease"
 
-    # Step 2: Burn in subtitles if provided
-    if ass_path and ass_path.exists():
-        ass_path_ffmpeg = _escape_ffmpeg_path(str(ass_path))
-        filter_parts += f",ass='{ass_path_ffmpeg}'"
-
-    # Step 3: Add watermark for free tier
+    # Step 2: Add watermark on the actual video content (before padding)
+    # This way the text sits at the top-left of the real video, not in black bars
     if add_watermark:
-        # Position text right above the actual video content.
-        # After scale+pad the total frame is 1080x1920.
-        # The actual video content height (ih) is centered, so top of video = (H-ih)/2.
-        # We place text at y = (H-ih)/2 - fontsize - 8, i.e. just above the video.
-        # fontfile path is the standard Debian/Ubuntu location for fonts-roboto.
         roboto_font = "/usr/share/fonts/truetype/roboto/unhinted/RobotoTTF/Roboto-Bold.ttf"
         filter_parts += (
             f",drawtext="
@@ -84,12 +77,20 @@ def render_short(
             f"text='EMclipper.com':"
             f"fontsize=28:"
             f"fontcolor=white@0.75:"
-            f"x=24:"
-            f"y=(H-ih)/2-text_h-8:"
+            f"x=24:y=8:"
             f"shadowcolor=black@0.5:shadowx=1:shadowy=1"
         )
 
+    # Step 3: Pad to exact 9:16 (1080x1920) with black bars
+    filter_parts += ",pad=1080:1920:(ow-iw)/2:(oh-ih)/2"
+
+    # Step 4: Burn in subtitles if provided (after padding so they're positioned for full frame)
+    if ass_path and ass_path.exists():
+        ass_path_ffmpeg = _escape_ffmpeg_path(str(ass_path))
+        filter_parts += f",ass='{ass_path_ffmpeg}'"
+
     filter_str = f"[0:v]{filter_parts}[outv]"
+
 
     ffmpeg_cmd.extend([
         "-filter_complex", filter_str,
