@@ -232,6 +232,9 @@ export function UploadProvider({ children }) {
         throw new Error(`Server returned ${response.status}`);
       }
 
+      // Server incremented the upload counter — refresh UI immediately
+      fetchSubscriptionStatus();
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       let buffer = '';
@@ -309,20 +312,7 @@ export function UploadProvider({ children }) {
                   }
                   
                   window.dispatchEvent(new Event('db-update'));
-
-                  // Increment upload counter after successful processing
-                  try {
-                    const { data: { session: freshSession } } = await supabase.auth.getSession();
-                    if (freshSession) {
-                      await fetch(`${API}/api/increment-upload`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${freshSession.access_token}` }
-                      });
-                      fetchSubscriptionStatus();
-                    }
-                  } catch (incErr) {
-                    console.error("Failed to increment upload counter:", incErr);
-                  }
+                  fetchSubscriptionStatus();
 
                   setTimeout(() => {
                      setFile(null);

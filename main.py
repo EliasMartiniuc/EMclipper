@@ -736,6 +736,17 @@ async def process_stream(
             detail=f"Upload limit reached for {tier} tier ({used}/{limit} uploads used). Please upgrade your subscription to create more clips."
         )
 
+    # Immediately increment the upload counter now that the quota check passed.
+    # This ensures the count updates right away, even if the user cancels processing later.
+    if user.email != ADMIN_EMAIL:
+        try:
+            supabase_admin.table('user_subscriptions').update({
+                'uploads_used': used + 1
+            }).eq('user_id', user.id).execute()
+            logger.info(f"Upload counter incremented for user {user.id}: {used + 1}/{limit}")
+        except Exception as e:
+            logger.error(f"Failed to increment upload counter: {e}")
+
     url = url.strip()
     job_id = job_id.strip()
 
