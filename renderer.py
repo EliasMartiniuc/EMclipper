@@ -76,9 +76,10 @@ def render_short(
             f"fontfile={roboto_font}:"
             f"text='EMclipper.com':"
             f"fontsize=28:"
-            f"fontcolor=white@0.75:"
+            f"fontcolor=white@0.9:"
             f"x=24:y=8:"
-            f"shadowcolor=black@0.5:shadowx=1:shadowy=1"
+            f"borderw=2:bordercolor=black@0.8:"
+            f"shadowcolor=black@0.5:shadowx=2:shadowy=2"
         )
 
     # Step 3: Pad to exact 9:16 (1080x1920) with black bars
