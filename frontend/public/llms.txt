@@ -8,7 +8,6 @@ EMclipper is an AI-powered video editing platform designed for podcasters, vlogg
 - Upload unlimited size videos
 - Automated highlight detection
 - Dynamic caption generation
-- One-click export for social media
 
 ## Tech Stack
 - Frontend: React, Vite, Tailwind-like styling

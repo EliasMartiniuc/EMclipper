@@ -108,12 +108,14 @@ class Job:
         subtitles_enabled: bool = True,
         user_id: Optional[str] = None,
         user_email: Optional[str] = None,
+        user_tier: Optional[str] = None,
     ):
         self.id: str = job_id
         self.url: Optional[str] = url
         self.subtitles_enabled: bool = subtitles_enabled
         self.user_id: Optional[str] = user_id
         self.user_email: Optional[str] = user_email
+        self.user_tier: Optional[str] = user_tier
         self.uploaded_video_path: Optional[Path] = None
         self.status: JobStatus = JobStatus.QUEUED
         self.progress: List[dict] = []
@@ -370,6 +372,7 @@ def process_video_stateless(job: Job):
                 job_id=job_id,
                 progress_callback=render_progress,
                 subprocess_tracker=job.active_subprocesses,
+                is_free_tier=(job.user_tier == "free"),
             )
 
             # Check cancellation AFTER render completes but BEFORE uploading to R2
@@ -750,7 +753,7 @@ async def process_stream(
     if not job_id:
         job_id = str(uuid.uuid4())
 
-    job = Job(job_id, url if url else None, subtitles_enabled, user_id=user.id, user_email=user.email)
+    job = Job(job_id, url if url else None, subtitles_enabled, user_id=user.id, user_email=user.email, user_tier=tier)
     active_jobs[job_id] = job
 
     if not url and job_id and filename:

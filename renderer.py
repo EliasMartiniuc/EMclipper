@@ -22,6 +22,7 @@ def render_short(
     job_id: str,
     progress_callback: Optional[Callable[[float], None]] = None,
     subprocess_tracker: Optional[List] = None,
+    is_free_tier: bool = False,
 ) -> Path:
     """
     Render the final video clip.
@@ -62,9 +63,15 @@ def render_short(
     # Ensure vertical 9:16 padding (1080x1920)
     if ass_path and ass_path.exists():
         ass_path_ffmpeg = _escape_ffmpeg_path(str(ass_path))
-        filter_str = f"[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,ass='{ass_path_ffmpeg}'[outv]"
+        filter_str = f"[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,ass='{ass_path_ffmpeg}'"
     else:
-        filter_str = "[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2[outv]"
+        filter_str = "[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2"
+
+    if is_free_tier:
+        font_path = _escape_ffmpeg_path(str(Path("font.ttf").absolute()))
+        filter_str += f",drawtext=fontfile='{font_path}':text='EMclipper.com':fontsize=32:fontcolor=white@0.5:box=0:shadowcolor=black@0.5:shadowx=2:shadowy=2:x=40:y=40"
+        
+    filter_str += "[outv]"
 
     ffmpeg_cmd.extend([
         "-filter_complex", filter_str,
