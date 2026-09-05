@@ -215,6 +215,20 @@ export function UploadProvider({ children }) {
         throw new Error("Database error while creating project.");
       }
 
+      // Increment upload counter
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await fetch(`${API}/api/increment-upload`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+          });
+          fetchSubscriptionStatus();
+        }
+      } catch (err) {
+        console.error("Failed to increment upload counter:", err);
+      }
+
       const formData = new FormData();
       formData.append('subtitles_enabled', 'true');
       formData.append('job_id', jobId);
@@ -308,7 +322,6 @@ export function UploadProvider({ children }) {
                   }
                   
                   window.dispatchEvent(new Event('db-update'));
-                  fetchSubscriptionStatus();
 
                   setTimeout(() => {
                      setFile(null);
