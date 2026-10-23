@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { apiErrorMessage } from './apiErrors';
 
 export async function editorRequest(path, options = {}) {
   const { data: { session } } = await supabase.auth.getSession();
@@ -8,7 +9,7 @@ export async function editorRequest(path, options = {}) {
   } });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(typeof result.detail === 'string' ? result.detail : 'The request failed. Please try again.');
+    const error = new Error(apiErrorMessage(result, response.status));
     error.status = response.status;
     throw error;
   }

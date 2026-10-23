@@ -68,23 +68,24 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     for caption in captions:
         if not caption.text.strip():
             continue
-        # Explicit karaoke onset tags preserve pauses between words. \k changes
-        # the whole word instantly, matching the browser's highlight behavior.
+        position = f"{{\\pos(540,{1920 * style.position / 100:.2f})}}"
         if caption.words:
-            parts = []
-            cursor_cs = 0
-            for word in caption.words:
-                start_cs = round((word.start - caption.start) * 100)
-                end_cs = round((word.end - caption.start) * 100)
-                if start_cs > cursor_cs:
-                    parts.append(f"{{\\k{start_cs - cursor_cs}}}\u200b")
-                parts.append(f"{{\\k{max(1, end_cs - start_cs)}}}{safe_text(word.word)} ")
-                cursor_cs = end_cs
-            text = "".join(parts).rstrip()
+            # Render at absolute onset boundaries rather than accumulating word
+            # durations. Whisper overlaps/backward onsets must not delay later
+            # highlights; the preview also highlights each word by its own start.
+            boundaries = sorted({caption.start, caption.end, *(max(caption.start, min(caption.end, w.start)) for w in caption.words)})
+            for start, end in zip(boundaries, boundaries[1:]):
+                start_ts, end_ts = _seconds_to_ass_timestamp(start), _seconds_to_ass_timestamp(end)
+                if start_ts == end_ts:
+                    continue
+                text = " ".join(
+                    f"{{\\c&H{ass_color(style.primary_color if w.start <= start + 1e-9 else style.secondary_color)[4:]}&}}{safe_text(w.word)}"
+                    for w in caption.words
+                )
+                dialogues.append(f"Dialogue: 0,{start_ts},{end_ts},Default,,0,0,0,,{position}{text}")
         else:
             text = safe_text(caption.text)
-        position = f"{{\\pos(540,{1920 * style.position / 100:.2f})}}"
-        dialogues.append(f"Dialogue: 0,{_seconds_to_ass_timestamp(caption.start)},{_seconds_to_ass_timestamp(caption.end)},Default,,0,0,0,,{position}{text}")
+            dialogues.append(f"Dialogue: 0,{_seconds_to_ass_timestamp(caption.start)},{_seconds_to_ass_timestamp(caption.end)},Default,,0,0,0,,{position}{text}")
     path.write_text(header + "\n".join(dialogues) + "\n", encoding="utf-8-sig")
 
 

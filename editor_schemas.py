@@ -41,11 +41,11 @@ class Caption(EditorModel):
     def validate_words(self):
         if self.end <= self.start:
             raise ValueError("Caption end must follow start")
-        last = self.start
         for word in self.words:
-            if word.start < last - 0.001 or word.end > self.end + 0.001:
-                raise ValueError("Words must be ordered and inside their caption")
-            last = word.end
+            # Whisper may return overlapping words and slightly reversed onsets.
+            # These are valid recognition results; each word still needs to fit.
+            if word.start < self.start - 0.001 or word.end > self.end + 0.001:
+                raise ValueError("Words must be inside their caption")
         if self.words and " ".join(self.text.split()) != " ".join(w.word for w in self.words):
             raise ValueError("Caption text must match its words")
         return self

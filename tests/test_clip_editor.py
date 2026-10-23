@@ -150,6 +150,29 @@ class EditorAPI(unittest.TestCase):
         document['tracks'][0]['segments'][0]['startTime'] = 1
         self.assertEqual(self.client.put(url, headers=self.headers, json=draft).status_code, 422)
 
+    def test_generated_overlapping_words_save_and_export(self):
+        # Regression: real Whisper timing shapes, including a reversed onset.
+        times = [(22.52, 22.62), (22.62, 23.04), (22.58, 23.32), (23.32, 23.42)]
+        clip = self.db.rows['clips'][0]
+        clip.update(duration=30, source_end=30, subtitles=[
+            {'word': f'word{i}', 'start': start, 'end': end}
+            for i, (start, end) in enumerate(times)
+        ])
+        script = "import {makeDocument,exportPayload} from './frontend/src/editor/timeline.js'; let s=''; for await(const c of process.stdin)s+=c; const document=makeDocument(JSON.parse(s)); console.log(JSON.stringify({document,render:exportPayload(document)}));"
+        result = subprocess.run(['node', '--input-type=module', '-e', script], input=json.dumps(clip),
+                                capture_output=True, text=True, check=True, cwd=Path(__file__).resolve().parents[1])
+        payload = json.loads(result.stdout)
+        draft = {'version': 1, 'savedAt': 0, 'document': payload['document']}
+        response = self.client.put(f'/api/clips/{CLIP_ID}/draft', headers=self.headers, json=draft)
+        self.assertEqual(response.status_code, 200, response.text)
+        words = self.db.rows['clips'][0]['editor_draft']['document']['subtitles'][0]['words']
+        self.assertEqual([(w['start'], w['end']) for w in words], times)
+        def fake_render(_source, _payload, output, _workspace, **_options):
+            output.write_bytes(b'export')
+        with patch.object(clip_editor, 'render_edit', side_effect=fake_render):
+            response = self.client.post(f'/api/clips/{CLIP_ID}/re-render', headers=self.headers, json=payload['render'])
+        self.assertEqual(response.status_code, 202, response.text)
+
 
 class RenderValidation(unittest.TestCase):
     def test_bad_word_timing_colors_and_fonts(self):
@@ -169,8 +192,22 @@ class RenderValidation(unittest.TestCase):
             write_editor_ass(path, payload.subtitles, SubtitleStyle())
             text = path.read_text(encoding='utf-8-sig')
         self.assertNotIn('{hello}', text)
-        self.assertIn(r'{\k100}', text)
+        self.assertIn('0:00:00.00,0:00:02.00', text)
+        self.assertIn(r'{\c&H00FFFF&}hello', text)
+        self.assertIn(r'{\c&HFFFFFF&}world', text)
         self.assertIn(r'\pos(540,1382.40)', text)
+
+    def test_overlapping_onsets_do_not_accumulate_highlight_delay(self):
+        payload = RenderRequest.model_validate({'segments': [{'source_start': 0, 'source_end': 4}], 'subtitles': [
+            {'text': 'one two three', 'start': 0, 'end': 2, 'words': [
+                {'word': 'one', 'start': 0, 'end': 1.5}, {'word': 'two', 'start': 1, 'end': 1.8},
+                {'word': 'three', 'start': 0.9, 'end': 2}]}]})
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'overlaps.ass'
+            write_editor_ass(path, payload.subtitles, SubtitleStyle())
+            text = path.read_text(encoding='utf-8-sig')
+        self.assertIn('0:00:00.90,0:00:01.00', text)
+        self.assertIn(r'{\c&HFFFFFF&}two {\c&H00FFFF&}three', text)
 
 
 @unittest.skipUnless(shutil.which('ffmpeg') and shutil.which('ffprobe'), 'FFmpeg is not installed')

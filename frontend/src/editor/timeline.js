@@ -51,7 +51,7 @@ export function makeDocument(clip) {
       groups.at(-1).push(word);
     });
     subtitles = groups.map((words) => ({ id: uid(), text: words.map((w) => w.word).join(' '),
-      start: words[0].start, end: words.at(-1).end, words }));
+      start: Math.min(...words.map((w) => w.start)), end: Math.max(...words.map((w) => w.end)), words }));
   }
   return normalize({ title: clip.title || 'Untitled clip', style: { ...defaultStyle, ...clip.subtitle_style },
     tracks: [{ id: 'video', type: 'video', segments: [{ id: uid(), sourceStart, sourceEnd,
