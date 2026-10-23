@@ -4,6 +4,7 @@ import { Video, LayoutDashboard, CreditCard, LogIn, UserPlus } from 'lucide-reac
 const Home = React.lazy(() => import('./pages/Home'));
 const Projects = React.lazy(() => import('./pages/Projects'));
 const ProjectDetail = React.lazy(() => import('./pages/ProjectDetail'));
+const ClipEditor = React.lazy(() => import('./pages/ClipEditor'));
 const Subscription = React.lazy(() => import('./pages/Subscription'));
 const Auth = React.lazy(() => import('./pages/Auth'));
 const AuthCallback = React.lazy(() => import('./pages/AuthCallback'));
@@ -392,16 +393,16 @@ function Footer() {
   );
 }
 
-function App() {
+function AppLayout() {
+  const isEditor = /^\/projects\/[^/]+\/editor\/[^/]+\/?$/.test(useLocation().pathname);
   return (
-    <AuthProvider>
-      <Router>
+    <>
         <ScrollToTop />
         <CookieBanner />
         <UploadProvider>
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-            <Navbar />
-            <main className="container" style={{ flex: 1, paddingBottom: '120px', width: '100%', minHeight: '100vh' }}>
+            {!isEditor && <Navbar />}
+            <main className={isEditor ? '' : 'container'} style={{ flex: 1, paddingBottom: isEditor ? 0 : '120px', width: '100%', minHeight: '100vh' }}>
               <Suspense fallback={
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', flexDirection: 'column', gap: '16px' }}>
                   <div className="neu-box" style={{ padding: '24px', borderRadius: '50%', animation: 'pulse 2s infinite' }}>
@@ -414,6 +415,7 @@ function App() {
                   <Route path="/" element={<Home />} />
                   <Route path="/projects" element={<Projects />} />
                   <Route path="/projects/:videoId" element={<ProjectDetail />} />
+                  <Route path="/projects/:projectId/editor/:clipId" element={<ClipEditor />} />
                   <Route path="/subscription" element={<Subscription />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/contact" element={<Contact />} />
@@ -425,12 +427,15 @@ function App() {
                 </Routes>
               </Suspense>
             </main>
-            <Footer />
+            {!isEditor && <Footer />}
           </div>
         </UploadProvider>
-      </Router>
-    </AuthProvider>
+    </>
   );
+}
+
+function App() {
+  return <AuthProvider><Router><AppLayout /></Router></AuthProvider>;
 }
 
 export default App;

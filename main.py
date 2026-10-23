@@ -352,6 +352,19 @@ def process_video_stateless(job: Job):
             output_filename = f"{clip_num}_{safe_title}.mp4"
             output_filepath = output_dir / output_filename
 
+            # Retain a browser-playable 9:16 source without captions. Keeping only
+            # this highlight (rather than the entire upload) bounds storage costs.
+            clean_filename = f"source_{output_filename}"
+            clean_filepath = output_dir / clean_filename
+            job.add_progress("rendering", f"Clip {clip_num}: Preparing editable source...")
+            renderer.render_short(
+                source_video=video_path, ass_path=None,
+                start_time=highlight.start_time, end_time=highlight.end_time,
+                output_path=clean_filepath, job_id=job_id,
+                subprocess_tracker=job.active_subprocesses,
+            )
+            check_cancelled()
+
             last_reported_render = [0]
 
             def render_progress(pct: float):
@@ -394,6 +407,10 @@ def process_video_stateless(job: Job):
             r2_key = f"{job_id}/{output_filename}"
             if s3_client:
                 s3_client.upload_file(
+                    str(clean_filepath), R2_BUCKET_NAME, f"{job_id}/{clean_filename}",
+                    ExtraArgs={'ContentType': 'video/mp4'}
+                )
+                s3_client.upload_file(
                     str(output_filepath),
                     R2_BUCKET_NAME,
                     r2_key,
@@ -403,7 +420,7 @@ def process_video_stateless(job: Job):
                 video_url = f"{R2_PUBLIC_URL}/{r2_key}"
                 logger.info(f"Clip {clip_num}: Uploaded successfully: {video_url}")
             else:
-                video_url = None
+                video_url = f"/outputs/{job_id}/{output_filename}"
                 logger.warning("No S3 client configured, skipping R2 upload.")
             
             clip_result = {
@@ -414,6 +431,17 @@ def process_video_stateless(job: Job):
                 "score": highlight.score,
                 "reason": highlight.reason,
                 "video_url": video_url,
+                "source_video_url": f"{R2_PUBLIC_URL.rstrip('/')}/{job_id}/{clean_filename}" if s3_client else f"/outputs/{job_id}/{clean_filename}",
+                "source_start": highlight.start_time,
+                "source_end": highlight.end_time,
+                "source_time_offset": highlight.start_time,
+                "original_start": highlight.start_time,
+                "original_end": highlight.end_time,
+                "subtitles": [{
+                    "word": w.word,
+                    "start": max(0, w.start - highlight.start_time),
+                    "end": min(clip_duration, w.end - highlight.start_time),
+                } for w in all_words if w.start < highlight.end_time and w.end > highlight.start_time],
             }
             job.clips.append(clip_result)
 
@@ -1410,6 +1438,9 @@ async def download_proxy(request: Request, url: str, filename: str = "clip.mp4")
     }
     return StreamingResponse(iter_file(), media_type="video/mp4", headers=headers)
 
+
+from clip_editor import create_editor_router
+app.include_router(create_editor_router(supabase_admin, s3_client, get_authenticated_user, _get_or_create_subscription))
 
 # ─── Frontend Serving (SPA Routing) ──────────────────────────────────────────
 

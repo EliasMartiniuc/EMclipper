@@ -55,6 +55,7 @@ const ClipCard = ({ clip }) => {
       </div>
 
       <div style={{ display: 'flex', gap: '12px' }}>
+        <Link to={`/projects/${clip.project_id}/editor/${clip.id}`} className="neu-btn" style={{ padding: '12px', textDecoration: 'none' }}><Edit3 size={18} /> Edit</Link>
         <button onClick={handleDownload} className="neu-btn-primary" style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
           <Download size={18} /> Download
         </button>

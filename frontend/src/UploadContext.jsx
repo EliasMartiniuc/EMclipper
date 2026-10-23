@@ -289,7 +289,14 @@ export function UploadProvider({ children }) {
                   title: clipMeta.title,
                   video_url: clipMeta.video_url,
                   score: clipMeta.score,
-                  duration: clipMeta.duration
+                  duration: clipMeta.duration,
+                  source_video_url: clipMeta.source_video_url,
+                  source_start: clipMeta.source_start,
+                  source_end: clipMeta.source_end,
+                  source_time_offset: clipMeta.source_time_offset ?? 0,
+                  original_start: clipMeta.original_start,
+                  original_end: clipMeta.original_end,
+                  subtitles: clipMeta.subtitles ?? []
                 });
                 
                 if (clipError) {
