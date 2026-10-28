@@ -8,7 +8,7 @@ import logging
 import subprocess
 from pathlib import Path
 
-from editor_schemas import Caption, RenderRequest, SubtitleStyle
+from editor_schemas import Caption, RenderRequest, SubtitleStyle, validate_caption_budget
 from renderer import _escape_ffmpeg_path
 from subtitles import _seconds_to_ass_timestamp
 from config import BASE_DIR
@@ -49,6 +49,7 @@ def safe_text(value: str) -> str:
 
 
 def write_editor_ass(path: Path, captions: list[Caption], style: SubtitleStyle):
+    validate_caption_budget(captions)
     family, _ = resolve_font(style.font)
     header = f"""[Script Info]
 ScriptType: v4.00+

@@ -161,6 +161,19 @@ export function UploadProvider({ children }) {
       const { data: { session: uploadSession } } = await supabase.auth.getSession();
       const authHeaders = uploadSession ? { 'Authorization': `Bearer ${uploadSession.access_token}` } : {};
 
+      // Pre-create the Project in Supabase before processing starts
+      const { error: projError } = await supabase.from('projects').insert({
+        id: jobId,
+        user_id: user.id,
+        title: filename,
+        thumbnail_url: thumbnail || null,
+      });
+      if (projError) {
+        console.error("Failed to create project in database:", projError);
+        throw new Error("Database error while creating project.");
+      }
+
+
       let lastRenderTime = 0;
       for (let i = 0; i < totalChunks; i++) {
         if (signal.aborted) throw new Error("AbortError");
@@ -203,17 +216,6 @@ export function UploadProvider({ children }) {
       setSpeedText('');
       setProgressText('Upload Complete! Starting AI Processing...');
 
-      // Pre-create the Project in Supabase before processing starts
-      const { error: projError } = await supabase.from('projects').insert({
-        id: jobId,
-        user_id: user.id,
-        title: filename,
-        thumbnail_url: thumbnail || null,
-      });
-      if (projError) {
-        console.error("Failed to create project in database:", projError);
-        throw new Error("Database error while creating project.");
-      }
 
 
       const formData = new FormData();

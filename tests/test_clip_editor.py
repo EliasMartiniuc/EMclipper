@@ -23,6 +23,7 @@ PROJECT_ID = 'c161dd63-a7a2-488a-a20b-625c6a6e371e'
 class Database:
     def __init__(self):
         self.rows = {
+            'media_tombstones': [],
             'clips': [{'id': CLIP_ID, 'project_id': PROJECT_ID, 'title': 'Test', 'duration': 4,
                        'video_url': f'/outputs/{PROJECT_ID}/baked.mp4',
                        'source_video_url': f'/outputs/{PROJECT_ID}/source.mp4', 'source_start': 0, 'source_end': 4}],
@@ -47,6 +48,14 @@ class Query:
     def update(self, changes):
         self.changes = changes
         return self
+
+    def upsert(self, changes):
+        if changes not in self.rows:
+            self.rows.append(copy.deepcopy(changes))
+        return self
+
+    def is_(self, key, value):
+        return self.eq(key, None if value == 'null' else value)
 
     def execute(self):
         rows = [row for row in self.rows if all(row.get(k) == v for k, v in self.filters)]

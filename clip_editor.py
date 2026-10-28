@@ -71,8 +71,11 @@ def create_editor_router(db, storage, authenticate, subscription):
         if not result.data:
             raise HTTPException(404, "Clip not found")
         clip = result.data[0]
-        project = await run_in_threadpool(lambda: db.table("projects").select("user_id").eq("id", clip["project_id"]).execute())
-        if not project.data or str(project.data[0]["user_id"]) != str(user.id):
+        retired = await run_in_threadpool(lambda: db.table('media_tombstones').select('project_id').eq('project_id', str(clip['project_id'])).execute())
+        if retired.data:
+            raise HTTPException(404, 'Clip not found')
+        project = await run_in_threadpool(lambda: db.table("projects").select("user_id, media_deleted_at").eq("id", clip["project_id"]).execute())
+        if not project.data or project.data[0].get('media_deleted_at') or str(project.data[0]["user_id"]) != str(user.id):
             raise HTTPException(404, "Clip not found")
         return clip, user
 
@@ -128,8 +131,9 @@ def create_editor_router(db, storage, authenticate, subscription):
                     render_edit(source, render_payload, output, workspace, watermark=watermark, progress=progress)
                     progress(90)
                     # Re-check existence before publishing if the project was deleted while rendering.
-                    project = db.table("projects").select("id").eq("id", clip["project_id"]).execute()
-                    if not project.data:
+                    project = db.table("projects").select("id, media_deleted_at").eq("id", clip["project_id"]).execute()
+                    retired = db.table('media_tombstones').select('project_id').eq('project_id', str(clip['project_id'])).execute()
+                    if retired.data or not project.data or project.data[0].get('media_deleted_at'):
                         raise ValueError("The project was deleted during export")
                     if storage:
                         storage.upload_file(str(output), R2_BUCKET_NAME, output_key, ExtraArgs={"ContentType": "video/mp4"})
@@ -139,6 +143,15 @@ def create_editor_router(db, storage, authenticate, subscription):
                         destination.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(output, destination)
                         video_url = f"/outputs/{output_key}"
+                    # A deletion may race the preceding existence check/upload.
+                    retired = db.table('media_tombstones').select('project_id').eq('project_id', str(clip['project_id'])).execute()
+                    project = db.table('projects').select('id, media_deleted_at').eq('id', clip['project_id']).execute()
+                    if retired.data or not project.data or project.data[0].get('media_deleted_at'):
+                        if storage:
+                            storage.delete_object(Bucket=R2_BUCKET_NAME, Key=output_key)
+                        else:
+                            (OUTPUTS_DIR / output_key).unlink(missing_ok=True)
+                        raise ValueError('Project deleted during publication')
                     update = {"video_url": video_url, "duration": sum(s.source_end - s.source_start for s in payload.segments)}
                     if not clip.get("source_video_url"):
                         # Freeze the original legacy file as source before changing video_url.

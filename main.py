@@ -38,6 +38,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
+from security_controls import contained, append_upload, upload_complete, remove_local_project, BodyLimitMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
@@ -179,6 +180,7 @@ def process_video_stateless(job: Job):
 
     def check_cancelled():
         """Check if the job was cancelled and raise if so."""
+        project_record(job_id, job.user_id)
         if job.cancelled:
             raise RuntimeError("Job cancelled by user")
             
@@ -422,6 +424,16 @@ def process_video_stateless(job: Job):
             else:
                 video_url = f"/outputs/{job_id}/{output_filename}"
                 logger.warning("No S3 client configured, skipping R2 upload.")
+
+            try:
+                check_cancelled()
+            except Exception:
+                if s3_client:
+                    s3_client.delete_objects(Bucket=R2_BUCKET_NAME, Delete={'Objects': [
+                        {'Key': r2_key}, {'Key': f'{job_id}/{clean_filename}'}]})
+                clean_filepath.unlink(missing_ok=True)
+                output_filepath.unlink(missing_ok=True)
+                raise
             
             clip_result = {
                 "index": clip_idx,
@@ -484,6 +496,9 @@ def process_video_stateless(job: Job):
         logger.error(f"[{job_id}] Pipeline error: {e}", exc_info=True)
         job.add_progress("error", f"Error: {str(e)}")
         raise
+
+    finally:
+        remove_local_project(job_id, [DOWNLOADS_DIR, TEMP_DIR])
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -568,6 +583,34 @@ class RateLimiter:
             return True
 
 rate_limiter = RateLimiter()
+app.add_middleware(BodyLimitMiddleware)
+
+
+def project_record(project_id, user_id=None, allow_deleted=False):
+    if not SAFE_ID_REGEX.fullmatch(project_id):
+        raise HTTPException(400, "Invalid project ID")
+    if not supabase_admin:
+        raise HTTPException(503, "Database unavailable")
+    retired = supabase_admin.table('media_tombstones').select('project_id').eq('project_id', project_id).execute().data
+    if retired and not allow_deleted:
+        raise HTTPException(404, 'Project not found')
+    rows = supabase_admin.table('projects').select('*').eq('id', project_id).execute().data
+    if not rows or (rows[0].get('media_deleted_at') and not allow_deleted) or (user_id is not None and str(rows[0]['user_id']) != str(user_id)):
+        raise HTTPException(404, "Project not found")
+    return rows[0]
+
+
+def retire_project(project_id, user_id):
+    project_record(project_id, user_id, allow_deleted=True)
+    supabase_admin.table('media_tombstones').upsert({'project_id': project_id}).execute()
+    supabase_admin.table('projects').update({'media_deleted_at': datetime.now().isoformat()}).eq('id', project_id).execute()
+    job = active_jobs.get(project_id)
+    if job:
+        job.cancelled = True
+        for proc in job.active_subprocesses:
+            proc.kill()
+    remove_local_project(project_id, [OUTPUTS_DIR, DOWNLOADS_DIR, TEMP_DIR])
+
 
 def get_client_ip(request: Request) -> str:
     # Prefer direct client host; fallback to right-most forwarded entry
@@ -592,7 +635,7 @@ def _get_upload_limit(tier: str) -> int:
 def _get_or_create_subscription(user_id: str, email: str = "") -> dict:
     """Get or create a user_subscriptions row. Returns the row as a dict."""
     if not supabase_admin:
-        return {'tier': 'free', 'uploads_used': 0}
+        raise HTTPException(503, 'Subscription service unavailable')
     
     try:
         result = supabase_admin.table('user_subscriptions').select('*').eq('user_id', user_id).execute()
@@ -612,7 +655,7 @@ def _get_or_create_subscription(user_id: str, email: str = "") -> dict:
         return insert_result.data[0] if insert_result.data else new_sub
     except Exception as e:
         logger.error(f"Error accessing user_subscriptions table: {e}")
-        return {'tier': 'free', 'uploads_used': 0}
+        raise HTTPException(503, 'Subscription service unavailable')
 
 
 def _check_user_can_upload(user_id: str, email: str) -> tuple[bool, str, int, int]:
@@ -627,20 +670,6 @@ def _check_user_can_upload(user_id: str, email: str) -> tuple[bool, str, int, in
     tier = sub.get('tier', 'free')
     uploads_used = sub.get('uploads_used', 0)
     limit = _get_upload_limit(tier)
-
-    # Billing period check for pro/ultra
-    if tier in ('pro', 'ultra') and sub.get('period_end'):
-        from datetime import timezone
-        try:
-            period_end = datetime.fromisoformat(sub['period_end'].replace('Z', '+00:00'))
-            if datetime.now(timezone.utc) > period_end:
-                uploads_used = 0
-                if supabase_admin:
-                    supabase_admin.table('user_subscriptions').update({
-                        'uploads_used': 0
-                    }).eq('user_id', user_id).execute()
-        except Exception:
-            pass
 
     return (uploads_used < limit), tier, uploads_used, limit
 
@@ -715,22 +744,13 @@ async def upload_chunk(
     if ext not in ALLOWED_VIDEO_EXTENSIONS:
         raise HTTPException(status_code=400, detail="Unsupported video format")
 
-    job_temp_dir = (TEMP_DIR / job_id).resolve()
-    temp_dir_resolved = TEMP_DIR.resolve()
-    if not str(job_temp_dir).startswith(str(temp_dir_resolved)):
-        raise HTTPException(status_code=400, detail="Invalid path traversal detected")
-
-    job_temp_dir.mkdir(parents=True, exist_ok=True)
-    video_path = (job_temp_dir / safe_filename).resolve()
-    if not str(video_path).startswith(str(job_temp_dir)):
-        raise HTTPException(status_code=400, detail="Invalid file path detected")
-
-    # Append the chunk to the file
-    with video_path.open("ab") as buffer:
-        content = await chunk.read()
-        buffer.write(content)
-
-    logger.info(f"[{job_id}] Received chunk {chunk_index + 1}/{total_chunks} for {safe_filename} ({len(content)} bytes)")
+    project = project_record(job_id, user.id)
+    if project.get('processing_started_at'):
+        raise HTTPException(409, 'Processing already started')
+    allowed, *_ = _check_user_can_upload(user.id, user.email or '')
+    if not allowed:
+        raise HTTPException(403, 'Upload allowance exhausted')
+    await append_upload(TEMP_DIR, user.id, job_id, safe_filename, chunk_index, total_chunks, chunk)
 
     return {"status": "success", "chunk_index": chunk_index}
 
@@ -756,6 +776,13 @@ async def process_stream(
     if not rate_limiter.is_allowed(f"proc_user:{user.id}", max_requests=10, window_seconds=600):
         raise HTTPException(status_code=429, detail="Too many concurrent or rapid processing requests. Please wait a few minutes.")
 
+    job_id = job_id.strip()
+    if job_id:
+        project_record(job_id, user.id)
+    else:
+        job_id = str(uuid.uuid4())
+        supabase_admin.table('projects').insert({'id': job_id, 'user_id': user.id, 'title': 'Video project'}).execute()
+
     # Server-side usage metering & quota check (fails closed)
     can_upload, tier, used, limit = _check_user_can_upload(user.id, user.email or "")
     if not can_upload:
@@ -763,17 +790,6 @@ async def process_stream(
             status_code=403,
             detail=f"Upload limit reached for {tier} tier ({used}/{limit} uploads used). Please upgrade your subscription to create more clips."
         )
-
-    # Immediately increment the upload counter now that the quota check passed.
-    # This ensures the count updates right away, even if the user cancels processing later.
-    if user.email != ADMIN_EMAIL:
-        try:
-            supabase_admin.table('user_subscriptions').update({
-                'uploads_used': used + 1
-            }).eq('user_id', user.id).execute()
-            logger.info(f"Upload counter incremented for user {user.id}: {used + 1}/{limit}")
-        except Exception as e:
-            logger.error(f"Failed to increment upload counter: {e}")
 
     url = url.strip()
     job_id = job_id.strip()
@@ -794,6 +810,24 @@ async def process_stream(
 
     if not job_id:
         job_id = str(uuid.uuid4())
+
+    if not url:
+        safe_name = "".join(c for c in Path(filename).name if c.isalnum() or c in (".", "-", "_")).strip()
+        upload_complete(TEMP_DIR, job_id, safe_name)
+    claimed = supabase_admin.table('projects').update({'processing_started_at': datetime.now().isoformat()}).eq('id', job_id).eq('user_id', user.id).is_('processing_started_at', 'null').is_('media_deleted_at', 'null').execute()
+    if not claimed.data:
+        raise HTTPException(409, 'Project is already processing or unavailable')
+
+    # Meter only a validated, newly claimed processing request.
+    # This ensures the count updates right away, even if the user cancels processing later.
+    if user.email != ADMIN_EMAIL:
+        try:
+            supabase_admin.table('user_subscriptions').update({
+                'uploads_used': used + 1
+            }).eq('user_id', user.id).execute()
+            logger.info(f"Upload counter incremented for user {user.id}: {used + 1}/{limit}")
+        except Exception as e:
+            logger.error(f"Failed to increment upload counter: {e}")
 
     job = Job(job_id, url if url else None, subtitles_enabled, user_id=user.id, user_email=user.email, tier=tier)
     active_jobs[job_id] = job
@@ -899,7 +933,8 @@ async def process_stream(
 @app.post("/api/cancel/{job_id}")
 async def cancel_job(job_id: str, request: Request):
     """Explicitly cancel a job and kill its processes."""
-    await get_authenticated_user(request)
+    user = await get_authenticated_user(request)
+    project_record(job_id.strip(), user.id)
 
     job_id = job_id.strip()
     if not SAFE_ID_REGEX.match(job_id):
@@ -946,10 +981,14 @@ async def delete_project_files(project_id: str, request: Request):
         if result.data[0].get('user_id') != user.id:
             raise HTTPException(status_code=403, detail="Not your project")
 
+    retire_project(project_id, user.id)
+
     # Clips are stored at {project_id}/filename.mp4
     # Cancel markers are stored at jobs/{project_id}/CANCELLED
     prefixes = [f"{project_id}/", f"jobs/{project_id}/"]
     try:
+        if not s3_client:
+            return {'status': 'deleted'}
         paginator = s3_client.get_paginator('list_objects_v2')
         for prefix in prefixes:
             for page in paginator.paginate(Bucket=R2_BUCKET_NAME, Prefix=prefix):
@@ -997,17 +1036,6 @@ async def subscription_status(request: Request):
     tier = sub.get('tier', 'free')
     uploads_used = sub.get('uploads_used', 0)
     limit = _get_upload_limit(tier)
-    
-    # For pro/ultra, check if the billing period has expired and reset the counter
-    if tier in ('pro', 'ultra') and sub.get('period_end'):
-        from datetime import timezone
-        period_end = datetime.fromisoformat(sub['period_end'].replace('Z', '+00:00'))
-        if datetime.now(timezone.utc) > period_end:
-            # Period expired, reset counter
-            uploads_used = 0
-            supabase_admin.table('user_subscriptions').update({
-                'uploads_used': 0
-            }).eq('user_id', user.id).execute()
     
     return {
         'tier': tier,
@@ -1073,6 +1101,11 @@ async def delete_account(request: Request):
         except Exception as e:
             logger.error(f"Failed to cancel Stripe subscription for {user_id}: {e}")
             
+    # Tombstone before removing data so every instance denies residual media.
+    projects = supabase_admin.table('projects').select('id').eq('user_id', user_id).execute().data
+    for project in projects:
+        retire_project(str(project['id']), user_id)
+
     # 2. Delete all projects' videos from Cloudflare R2
     if s3_client:
         try:
@@ -1365,7 +1398,8 @@ async def download_clip(job_id: str, filename: str):
     if not SAFE_ID_REGEX.match(job_id):
         raise HTTPException(status_code=400, detail="Invalid job_id format")
 
-    job_dir = (OUTPUTS_DIR / job_id).resolve()
+    project_record(job_id)
+    job_dir = contained(OUTPUTS_DIR, job_id)
     outputs_dir_resolved = OUTPUTS_DIR.resolve()
     if not str(job_dir).startswith(str(outputs_dir_resolved)):
         raise HTTPException(status_code=400, detail="Invalid path traversal detected")
@@ -1448,11 +1482,15 @@ frontend_dir = BASE_DIR / "frontend" / "dist"
 
 # Mount outputs directory for direct video streaming/preview
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
-app.mount(
-    "/outputs",
-    StaticFiles(directory=str(OUTPUTS_DIR)),
-    name="outputs",
-)
+@app.get('/outputs/{media_path:path}')
+async def output_media(media_path: str):
+    project_id = media_path.split('/')[0]
+    project_record(project_id)
+    path = contained(contained(OUTPUTS_DIR, project_id), *media_path.split('/')[1:])
+    if not path.is_file():
+        raise HTTPException(404, 'Media not found')
+    return FileResponse(path)
+
 
 # Mount Vite assets directory
 assets_dir = frontend_dir / "assets"
@@ -1472,7 +1510,7 @@ async def serve_frontend(full_path: str):
     
     # Check if the requested path is an actual static file in dist (e.g., logo.jpg)
     if full_path:
-        static_file = frontend_dir / full_path
+        static_file = contained(frontend_dir, full_path)
         if static_file.exists() and static_file.is_file():
             return FileResponse(str(static_file))
     

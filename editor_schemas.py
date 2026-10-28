@@ -3,6 +3,12 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
+def validate_caption_budget(captions):
+    cost = sum(max(1, len(c.words) + 1) * (len(c.text) + 16 * len(c.words) + 120) for c in captions)
+    if cost > 2 * 1024 * 1024 or sum(len(c.words) for c in captions) > 10000:
+        raise ValueError('Caption rendering budget exceeded; reduce caption count or phrase length')
+
+
 class EditorModel(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False, extra="forbid")
 
@@ -70,6 +76,7 @@ class RenderRequest(EditorModel):
 
     @model_validator(mode="after")
     def timeline_bounds(self):
+        validate_caption_budget(self.subtitles)
         duration = sum(s.source_end - s.source_start for s in self.segments)
         if duration > 1800:
             raise ValueError("An edited clip cannot exceed 30 minutes")
@@ -119,6 +126,7 @@ class EditorDocument(EditorModel):
 
     @model_validator(mode="after")
     def valid_timeline(self):
+        validate_caption_budget(self.subtitles)
         cursor = 0.0
         ids = []
         for segment in self.tracks[0].segments:

@@ -23,6 +23,22 @@ Missing optional fonts fall back to bundled Arial in both views.
 
 ### Setup
 
+For the security updates, apply `migrations/20261028_security_controls.sql` before
+deploying **both** backend and frontend. It adds server-only processing/deletion
+state and durable media tombstones independent of project/account deletion.
+The backend requires `SUPABASE_SERVICE_ROLE_KEY`. Existing RLS policies remain
+required; browser project writes are limited to the fields the UI uses.
+
+Uploads now create their project before sending chunks, accept chunks up to
+8 MiB, reject duplicates/out-of-order chunks, and enforce a default 128 MiB
+per-file and total temporary-storage budget per instance. Set `MAX_UPLOAD_BYTES`
+and `MAX_UPLOAD_STORAGE_BYTES` only according to the worker's disk/memory capacity.
+Abandoned uploads expire after 24 hours on the next upload; processing cleans
+its input files when it finishes. Request-body limits apply before parsing.
+Paid usage resets only through verified renewal events, never status reads.
+Both media retrieval routes deny retired/deleted project IDs across instances;
+retired IDs cannot be reused to recover old local files.
+
 1. Apply `migrations/20261023_clip_editor.sql` in the Supabase SQL editor **before
    deploying the frontend or generating new clips**. Existing RLS policies remain
    in place; the editor APIs verify ownership of the parent project.
